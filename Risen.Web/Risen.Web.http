@@ -1,0 +1,6 @@
+@Risen.Web_HostAddress = http://localhost:5077
+
+GET {{Risen.Web_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
