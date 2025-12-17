@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Risen.Business.Integrations.Hipolabs;
 using Risen.Business.Services.Abstracts;
 using Risen.Business.Services.Concretes;
 using Risen.DataAccess.Data;
@@ -29,6 +30,13 @@ builder.Services
     .AddEntityFrameworkStores<AppDbContext>()
     .AddSignInManager()
     .AddDefaultTokenProviders();
+
+
+builder.Services.AddHttpClient<IHipolabsClient, HipolabsClient>(c =>
+{
+    c.BaseAddress = new Uri("http://universities.hipolabs.com");
+    c.Timeout = TimeSpan.FromSeconds(10);
+});
 
 // JWT Auth
 var jwtKey = builder.Configuration["Jwt:Key"]!;
@@ -61,6 +69,8 @@ builder.Services.AddAuthorization(options =>
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IEntitlementService, EntitlementService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IUniversityService, UniversityService>();
+builder.Services.AddMemoryCache();
 
 builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle

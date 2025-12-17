@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Risen.Business.Services.Abstracts;
-using Risen.Business.Services.Abstracts.Models;
+using Risen.Contracts.Auth;
 using Risen.DataAccess.Data;
 using Risen.Entities.Entities;
 using System;
@@ -20,6 +20,7 @@ namespace Risen.Business.Services.Concretes
         private readonly AppDbContext _db;
         private readonly ITokenService _tokenService;
         private readonly IEntitlementService _entitlementService;
+        private readonly IUniversityService _universityService;
 
         public AuthService(
             UserManager<CustomIdentityUser> userManager,
@@ -27,7 +28,8 @@ namespace Risen.Business.Services.Concretes
             RoleManager<CustomIdentityRole> roleManager,
             AppDbContext db,
             ITokenService tokenService,
-            IEntitlementService entitlementService)
+            IEntitlementService entitlementService,
+            IUniversityService universityService)
         {
             _userManager = userManager;
             _signInManager = signInManager;
@@ -35,25 +37,33 @@ namespace Risen.Business.Services.Concretes
             _db = db;
             _tokenService = tokenService;
             _entitlementService = entitlementService;
+            _universityService = universityService;
         }
 
         public async Task RegisterAsync(RegisterRequest req, CancellationToken ct)
         {
             var exists = await _userManager.FindByEmailAsync(req.Email);
             if (exists is not null)
-                throw new InvalidOperationException("Bu email artıq mövcuddur.");
+                throw new InvalidOperationException("This email already exists.");
+
+            var uniId = await _universityService.UpsertAndGetIdAsync(req.UniversityName, ct);
 
             var user = new CustomIdentityUser
             {
                 Id = Guid.NewGuid(),
                 Email = req.Email,
                 UserName = req.Email,
-                FullName = req.FullName,
-                Country = req.Country,
+
+                FirstName = req.FirstName.Trim(),
+                LastName = req.LastName.Trim(),
+
+                UniversityId = uniId,
                 EmailConfirmed = true
             };
 
             var result = await _userManager.CreateAsync(user, req.Password);
+
+
             if (!result.Succeeded)
                 throw new InvalidOperationException(string.Join(" | ", result.Errors.Select(e => e.Description)));
 
@@ -81,11 +91,11 @@ namespace Risen.Business.Services.Concretes
         {
             var user = await _userManager.FindByEmailAsync(req.Email);
             if (user is null)
-                throw new InvalidOperationException("Email və ya şifrə yanlışdır.");
+                throw new InvalidOperationException("Email or password is wrong.");
 
             var check = await _signInManager.CheckPasswordSignInAsync(user, req.Password, lockoutOnFailure: true);
             if (!check.Succeeded)
-                throw new InvalidOperationException("Email və ya şifrə yanlışdır.");
+                throw new InvalidOperationException("Email or password is wrong.");
 
             var roles = await _userManager.GetRolesAsync(user);
             var (isPremium, plan) = await _entitlementService.GetUserEntitlementAsync(user.Id, ct);
@@ -102,6 +112,10 @@ namespace Risen.Business.Services.Concretes
                 TokenHash = rt.Hash,
                 ExpiresAtUtc = rt.ExpiresAtUtc
             });
+
+            user.LastOnlineAtUtc = DateTime.UtcNow;
+            await _userManager.UpdateAsync(user);
+
             await _db.SaveChangesAsync(ct);
 
             return new AuthResponse(access, rt.Plain, plan, isPremium);
@@ -113,11 +127,11 @@ namespace Risen.Business.Services.Concretes
 
             var stored = await _db.RefreshTokens.FirstOrDefaultAsync(x => x.TokenHash == incomingHash, ct);
             if (stored is null || stored.IsRevoked || stored.ExpiresAtUtc <= DateTime.UtcNow)
-                throw new InvalidOperationException("Refresh token etibarsızdır.");
+                throw new InvalidOperationException("Refresh token is not valid.");
 
             var user = await _userManager.FindByIdAsync(stored.UserId.ToString());
             if (user is null)
-                throw new InvalidOperationException("User tapılmadı.");
+                throw new InvalidOperationException("User couldn't find.");
 
             var roles = await _userManager.GetRolesAsync(user);
             var (isPremium, plan) = await _entitlementService.GetUserEntitlementAsync(user.Id, ct);
@@ -137,6 +151,9 @@ namespace Risen.Business.Services.Concretes
                 TokenHash = rt.Hash,
                 ExpiresAtUtc = rt.ExpiresAtUtc
             });
+
+            user.LastOnlineAtUtc = DateTime.UtcNow;
+            await _userManager.UpdateAsync(user);
 
             await _db.SaveChangesAsync(ct);
 

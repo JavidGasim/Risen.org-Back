@@ -18,11 +18,32 @@ namespace Risen.DataAccess.Data
         public DbSet<Plan> Plans => Set<Plan>();
         public DbSet<UserSubscription> UserSubscriptions => Set<UserSubscription>();
         public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+        public DbSet<University> Universities => Set<University>();
+
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
             // Additional configurations can be added here if needed
+
+            builder.Entity<CustomIdentityUser>(e =>
+            {
+                e.Property(x => x.FirstName).HasMaxLength(64).IsRequired();
+                e.Property(x => x.LastName).HasMaxLength(64).IsRequired();
+                e.Property(x => x.FullName).HasMaxLength(128).IsRequired();
+            });
+
+            builder.Entity<CustomIdentityUser>(e =>
+            {
+                e.Property(x => x.FirstName).HasMaxLength(64).IsRequired();
+                e.Property(x => x.LastName).HasMaxLength(64).IsRequired();
+            });
+
+            builder.Entity<CustomIdentityUser>(e =>
+            {
+                e.Property(x => x.LastOnlineAtUtc);
+                e.HasIndex(x => x.LastOnlineAtUtc);
+            });
 
             builder.Entity<Plan>(e =>
             {
@@ -47,6 +68,30 @@ namespace Risen.DataAccess.Data
                 e.HasKey(x => x.Id);
                 e.HasIndex(x => x.TokenHash).IsUnique();
                 e.Property(x => x.TokenHash).HasMaxLength(128).IsRequired();
+            });
+
+            builder.Entity<University>(e =>
+            {
+                e.HasKey(x => x.Id);
+
+                e.Property(x => x.Name).HasMaxLength(256).IsRequired();
+                e.Property(x => x.Country).HasMaxLength(128).IsRequired();
+                e.Property(x => x.StateProvince).HasMaxLength(128);
+
+                e.Property(x => x.PrimaryDomain).HasMaxLength(256);
+                e.Property(x => x.PrimaryWebPage).HasMaxLength(512);
+
+                e.Property(x => x.NormalizedKey).HasMaxLength(600).IsRequired();
+                e.HasIndex(x => x.NormalizedKey).IsUnique();
+            });
+
+            // User -> University FK
+            builder.Entity<CustomIdentityUser>(e =>
+            {
+                e.HasOne(x => x.University)
+                 .WithMany()
+                 .HasForeignKey(x => x.UniversityId)
+                 .OnDelete(DeleteBehavior.SetNull);
             });
 
             // Plan seed (stabil GUID-lərlə)

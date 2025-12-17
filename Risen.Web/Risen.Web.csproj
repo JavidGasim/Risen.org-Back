@@ -25,6 +25,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Risen.Business\Risen.Business.csproj" />
+    <ProjectReference Include="..\Risen.Contracts\Risen.Contracts.csproj" />
     <ProjectReference Include="..\Risen.DataAccess\Risen.DataAccess.csproj" />
   </ItemGroup>
 

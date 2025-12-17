@@ -1,4 +1,4 @@
-﻿using Risen.Business.Services.Abstracts.Models;
+﻿using Risen.Contracts.Auth;
 using System;
 using System.Collections.Generic;
 using System.Linq;

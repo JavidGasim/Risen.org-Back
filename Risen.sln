@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
-VisualStudioVersion = 17.13.35825.156 d17.13
+VisualStudioVersion = 17.13.35825.156
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Risen.Business", "Risen.Business\Risen.Business.csproj", "{79369D3A-CD3E-467A-8D4A-B2958AAA95F0}"
 EndProject
@@ -10,6 +10,8 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Risen.Entities", "Risen.Entities\Risen.Entities.csproj", "{829BB8AC-72E4-47A7-A930-50A0A060C881}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Risen.Web", "Risen.Web\Risen.Web.csproj", "{E189A23B-024C-42A2-A099-8BA2E4C1A316}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Risen.Contracts", "Risen.Contracts\Risen.Contracts.csproj", "{CE5254E2-9EC9-45EF-B505-0B8FECD651E3}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -33,6 +35,10 @@ Global
 		{E189A23B-024C-42A2-A099-8BA2E4C1A316}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{E189A23B-024C-42A2-A099-8BA2E4C1A316}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{E189A23B-024C-42A2-A099-8BA2E4C1A316}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CE5254E2-9EC9-45EF-B505-0B8FECD651E3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CE5254E2-9EC9-45EF-B505-0B8FECD651E3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CE5254E2-9EC9-45EF-B505-0B8FECD651E3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CE5254E2-9EC9-45EF-B505-0B8FECD651E3}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

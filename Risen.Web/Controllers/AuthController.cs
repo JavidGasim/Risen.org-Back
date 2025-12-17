@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Risen.Business.Services.Abstracts.Models;
 using Risen.Business.Services.Abstracts;
+using Risen.Contracts.Auth;
 
 namespace Risen.Web.Controllers
 {
@@ -23,7 +23,7 @@ namespace Risen.Web.Controllers
         [HttpPost("login")]
         public async Task<ActionResult<AuthResponse>> Login([FromBody] LoginRequest req, CancellationToken ct)
         {
-            var res = await _auth.LoginAsync(req, ct);  
+            var res = await _auth.LoginAsync(req, ct);
             return Ok(res);
         }
 
