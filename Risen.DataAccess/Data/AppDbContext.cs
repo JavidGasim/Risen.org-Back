@@ -19,6 +19,13 @@ namespace Risen.DataAccess.Data
         public DbSet<UserSubscription> UserSubscriptions => Set<UserSubscription>();
         public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
         public DbSet<University> Universities => Set<University>();
+        public DbSet<LeagueTier> LeagueTiers => Set<LeagueTier>();
+        public DbSet<UserStats> UserStats => Set<UserStats>();
+        public DbSet<XpTransaction> XpTransactions => Set<XpTransaction>();
+        public DbSet<UserLeagueHistory> UserLeagueHistories => Set<UserLeagueHistory>();
+        public DbSet<Quest> Quests => Set<Quest>();
+        public DbSet<QuestAttempt> QuestAttempts => Set<QuestAttempt>();
+
 
 
         protected override void OnModelCreating(ModelBuilder builder)
@@ -75,15 +82,16 @@ namespace Risen.DataAccess.Data
                 e.HasKey(x => x.Id);
 
                 e.Property(x => x.Name).HasMaxLength(256).IsRequired();
-                e.Property(x => x.Country).HasMaxLength(128).IsRequired();
-                e.Property(x => x.StateProvince).HasMaxLength(128);
 
-                e.Property(x => x.PrimaryDomain).HasMaxLength(256);
-                e.Property(x => x.PrimaryWebPage).HasMaxLength(512);
-
-                e.Property(x => x.NormalizedKey).HasMaxLength(600).IsRequired();
+                e.Property(x => x.NormalizedKey).HasMaxLength(300).IsRequired();
                 e.HasIndex(x => x.NormalizedKey).IsUnique();
+
+                e.Property(x => x.Country).HasMaxLength(128); // <-- IsRequired YOX
+                e.Property(x => x.StateProvince).HasMaxLength(128);
+                e.Property(x => x.PrimaryDomain).HasMaxLength(200);
+                e.Property(x => x.PrimaryWebPage).HasMaxLength(500);
             });
+
 
             // User -> University FK
             builder.Entity<CustomIdentityUser>(e =>
@@ -104,6 +112,112 @@ namespace Risen.DataAccess.Data
                 new Plan { Id = premiumId, Code = PlanCode.Premium, Name = "Premium" },
                 new Plan { Id = lifetimeId, Code = PlanCode.Lifetime, Name = "Lifetime" }
             );
+
+            builder.Entity<LeagueTier>(e =>
+            {
+                e.HasKey(x => x.Id);
+                e.HasIndex(x => x.Code).IsUnique();
+
+                e.Property(x => x.Name).HasMaxLength(64).IsRequired();
+                e.Property(x => x.MinXp).IsRequired();
+                e.Property(x => x.SortOrder).IsRequired();
+            });
+
+            builder.Entity<UserStats>(e =>
+            {
+                e.HasKey(x => x.UserId);
+
+                e.HasOne(x => x.User)
+                 .WithOne(u => u.Stats)
+                 .HasForeignKey<UserStats>(x => x.UserId)
+                 .OnDelete(DeleteBehavior.Cascade);
+
+                e.HasOne(x => x.CurrentLeagueTier)
+                 .WithMany()
+                 .HasForeignKey(x => x.CurrentLeagueTierId)
+                 .OnDelete(DeleteBehavior.Restrict);
+
+                e.HasIndex(x => x.TotalXp);
+            });
+
+            builder.Entity<XpTransaction>(e =>
+            {
+                e.HasKey(x => x.Id);
+
+                e.Property(x => x.SourceKey).HasMaxLength(200).IsRequired();
+                e.HasIndex(x => new { x.UserId, x.SourceKey }).IsUnique(); // idempotency
+
+                e.HasIndex(x => new { x.UserId, x.CreatedAtUtc });
+            });
+
+            builder.Entity<UserLeagueHistory>(e =>
+            {
+                e.HasKey(x => x.Id);
+                e.HasIndex(x => new { x.UserId, x.ChangedAtUtc });
+
+                e.HasOne(x => x.FromTier).WithMany().HasForeignKey(x => x.FromTierId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.ToTier).WithMany().HasForeignKey(x => x.ToTierId).OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // Identity User constraints (optional but recommended)
+            builder.Entity<CustomIdentityUser>(e =>
+            {
+                e.Property(x => x.FirstName).HasMaxLength(64).IsRequired();
+                e.Property(x => x.LastName).HasMaxLength(64).IsRequired();
+                e.Property(x => x.FullName).HasMaxLength(128).IsRequired();
+                e.HasIndex(x => x.LastOnlineAtUtc);
+            });
+
+            var rookieId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1");
+            var bronzeId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa2");
+            var silverId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa3");
+            var goldId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa4");
+            var platinumId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa5");
+            var diamondId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa6");
+            var masterId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa7");
+            var legendId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa8");
+
+            builder.Entity<LeagueTier>().HasData(
+                new LeagueTier { Id = rookieId, Code = LeagueCode.Rookie, Name = "Rookie", MinXp = 0, MaxXp = 999, SortOrder = 1 },
+                new LeagueTier { Id = bronzeId, Code = LeagueCode.Bronze, Name = "Bronze", MinXp = 1000, MaxXp = 2999, SortOrder = 2 },
+                new LeagueTier { Id = silverId, Code = LeagueCode.Silver, Name = "Silver", MinXp = 3000, MaxXp = 5999, SortOrder = 3 },
+                new LeagueTier { Id = goldId, Code = LeagueCode.Gold, Name = "Gold", MinXp = 6000, MaxXp = 9999, SortOrder = 4 },
+                new LeagueTier { Id = platinumId, Code = LeagueCode.Platinum, Name = "Platinum", MinXp = 10000, MaxXp = 14999, SortOrder = 5 },
+                new LeagueTier { Id = diamondId, Code = LeagueCode.Diamond, Name = "Diamond", MinXp = 15000, MaxXp = 21999, SortOrder = 6 },
+                new LeagueTier { Id = masterId, Code = LeagueCode.Master, Name = "Master", MinXp = 22000, MaxXp = 29999, SortOrder = 7 },
+                new LeagueTier { Id = legendId, Code = LeagueCode.Legend, Name = "Legend", MinXp = 30000, MaxXp = null, SortOrder = 8 }
+            );
+
+            builder.Entity<Quest>(e =>
+            {
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Title).HasMaxLength(200).IsRequired();
+                e.Property(x => x.SubjectCode).HasMaxLength(50).IsRequired();
+                e.HasIndex(x => new { x.SubjectCode, x.Difficulty, x.IsActive });
+            });
+
+            builder.Entity<QuestAttempt>(e =>
+            {
+                e.HasKey(x => x.Id);
+
+                e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.Quest).WithMany().HasForeignKey(x => x.QuestId).OnDelete(DeleteBehavior.Restrict);
+
+                // Date-only kimi saxla (SQL Server üçün daha düzgün)
+                e.Property(x => x.CompletedDateUtc).HasColumnType("date");
+
+                // Eyni user eyni quest-i eyni gündə 2 dəfə tamamlamasın (idempotency)
+                e.HasIndex(x => new { x.UserId, x.QuestId, x.CompletedDateUtc }).IsUnique();
+
+                e.HasIndex(x => new { x.UserId, x.CompletedAtUtc });
+            });
+
+            // UserStats streak date-ni də "date" saxla
+            builder.Entity<UserStats>(e =>
+            {
+                e.Property(x => x.LastStreakDateUtc).HasColumnType("date");
+            });
+
         }
     }
 }

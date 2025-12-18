@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Risen.Business.Integrations.Hipolabs;
+using Risen.Business.Options;
 using Risen.Business.Services.Abstracts;
 using Risen.Business.Services.Concretes;
 using Risen.DataAccess.Data;
@@ -66,10 +67,17 @@ builder.Services.AddAuthorization(options =>
 });
 
 // Services
+builder.Services.Configure<QuestPolicyOptions>(builder.Configuration.GetSection("QuestPolicy"));
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IEntitlementService, EntitlementService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IUniversityService, UniversityService>();
+builder.Services.AddScoped<IQuestService, QuestService>();
+builder.Services.AddScoped<IQuestFeedService, QuestFeedService>();
+builder.Services.AddScoped<IXpService, XpService>();
+builder.Services.AddScoped<IQuestEntitlementService, QuestEntitlementService>();
+builder.Services.AddScoped<ILeaderboardService, LeaderboardService>();
+
 builder.Services.AddMemoryCache();
 
 builder.Services.AddControllers();

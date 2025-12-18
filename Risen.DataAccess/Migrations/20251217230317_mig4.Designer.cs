@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Risen.DataAccess.Data;
 
@@ -11,9 +12,11 @@ using Risen.DataAccess.Data;
 namespace Risen.DataAccess.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251217230317_mig4")]
+    partial class mig4
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -393,74 +396,6 @@ namespace Risen.DataAccess.Migrations
                         });
                 });
 
-            modelBuilder.Entity("Risen.Entities.Entities.Quest", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<int>("BaseXp")
-                        .HasColumnType("int");
-
-                    b.Property<int>("Difficulty")
-                        .HasColumnType("int");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("IsPremiumOnly")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("SubjectCode")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("SubjectCode", "Difficulty", "IsActive");
-
-                    b.ToTable("Quests");
-                });
-
-            modelBuilder.Entity("Risen.Entities.Entities.QuestAttempt", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<int>("AwardedXp")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("CompletedAtUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime>("CompletedDateUtc")
-                        .HasColumnType("date");
-
-                    b.Property<Guid>("QuestId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("QuestId");
-
-                    b.HasIndex("UserId", "CompletedAtUtc");
-
-                    b.HasIndex("UserId", "QuestId", "CompletedDateUtc")
-                        .IsUnique();
-
-                    b.ToTable("QuestAttempts");
-                });
-
             modelBuilder.Entity("Risen.Entities.Entities.RefreshToken", b =>
                 {
                     b.Property<Guid>("Id")
@@ -502,6 +437,7 @@ namespace Risen.DataAccess.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Country")
+                        .IsRequired()
                         .HasMaxLength(128)
                         .HasColumnType("nvarchar(128)");
 
@@ -512,16 +448,16 @@ namespace Risen.DataAccess.Migrations
 
                     b.Property<string>("NormalizedKey")
                         .IsRequired()
-                        .HasMaxLength(300)
-                        .HasColumnType("nvarchar(300)");
+                        .HasMaxLength(600)
+                        .HasColumnType("nvarchar(600)");
 
                     b.Property<string>("PrimaryDomain")
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
 
                     b.Property<string>("PrimaryWebPage")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
+                        .HasMaxLength(512)
+                        .HasColumnType("nvarchar(512)");
 
                     b.Property<string>("StateProvince")
                         .HasMaxLength(128)
@@ -574,15 +510,6 @@ namespace Risen.DataAccess.Migrations
 
                     b.Property<Guid>("CurrentLeagueTierId")
                         .HasColumnType("uniqueidentifier");
-
-                    b.Property<int>("CurrentStreak")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime?>("LastStreakDateUtc")
-                        .HasColumnType("date");
-
-                    b.Property<int>("LongestStreak")
-                        .HasColumnType("int");
 
                     b.Property<long>("TotalXp")
                         .HasColumnType("bigint");
@@ -727,25 +654,6 @@ namespace Risen.DataAccess.Migrations
                         .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("University");
-                });
-
-            modelBuilder.Entity("Risen.Entities.Entities.QuestAttempt", b =>
-                {
-                    b.HasOne("Risen.Entities.Entities.Quest", "Quest")
-                        .WithMany()
-                        .HasForeignKey("QuestId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("Risen.Entities.Entities.CustomIdentityUser", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Quest");
-
-                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("Risen.Entities.Entities.UserLeagueHistory", b =>

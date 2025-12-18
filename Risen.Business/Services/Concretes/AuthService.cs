@@ -57,6 +57,8 @@ namespace Risen.Business.Services.Concretes
                 FirstName = req.FirstName.Trim(),
                 LastName = req.LastName.Trim(),
 
+                FullName = $"{req.FirstName} {req.LastName}".Trim(),
+
                 UniversityId = uniId,
                 EmailConfirmed = true
             };
@@ -66,6 +68,20 @@ namespace Risen.Business.Services.Concretes
 
             if (!result.Succeeded)
                 throw new InvalidOperationException(string.Join(" | ", result.Errors.Select(e => e.Description)));
+
+            // user yaradıldı (CreateAsync successful) - indi stats yarat
+            var rookieTierId = await _db.LeagueTiers
+                .Where(t => t.Code == LeagueCode.Rookie)
+                .Select(t => t.Id)
+                .FirstAsync(ct);
+
+            _db.UserStats.Add(new UserStats
+            {
+                UserId = user.Id,
+                TotalXp = 0,
+                CurrentLeagueTierId = rookieTierId,
+                UpdatedAtUtc = DateTime.UtcNow
+            });
 
             // Default role
             const string defaultRole = "Student";

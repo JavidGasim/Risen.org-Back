@@ -13,11 +13,14 @@ namespace Risen.Entities.Entities
         public string LastName { get; set; } = default!;
 
         public string FullName { get; set; } = default!;
-        public string? Country { get; set; }
         public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
-        public Guid? UniversityId { get; set; }
-        public University? University { get; set; }
+
         public DateTime? LastOnlineAtUtc { get; set; }
 
+        public Guid? UniversityId { get; set; }
+        public University? University { get; set; }
+
+        // 1-1 stats
+        public UserStats? Stats { get; set; }
     }
 }

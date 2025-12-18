@@ -24,16 +24,20 @@ namespace Risen.Business.Services.Concretes
             var key = NormalizeKey(name);
 
             var existing = await _db.Universities
+                .AsNoTracking()
                 .FirstOrDefaultAsync(x => x.NormalizedKey == key, ct);
 
-            if (existing is not null)
-                return existing.Id;
+            if (existing is not null) return existing.Id;
 
             var uni = new University
             {
                 Id = Guid.NewGuid(),
                 Name = name,
-                NormalizedKey = key
+                NormalizedKey = key,
+                Country = null,            // <-- artıq problem deyil
+                StateProvince = null,
+                PrimaryDomain = null,
+                PrimaryWebPage = null
             };
 
             _db.Universities.Add(uni);
