@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Risen.DataAccess.Data;
 
@@ -11,9 +12,11 @@ using Risen.DataAccess.Data;
 namespace Risen.DataAccess.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260104203737_mig9")]
+    partial class mig9
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -645,16 +648,15 @@ namespace Risen.DataAccess.Migrations
                         .HasColumnType("datetime2");
 
                     b.Property<decimal>("DifficultyMultiplier")
-                        .HasPrecision(9, 4)
-                        .HasColumnType("decimal(9,4)");
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<int>("FinalXp")
                         .HasColumnType("int");
 
                     b.Property<string>("SourceKey")
                         .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("nvarchar(128)");
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<int>("SourceType")
                         .HasColumnType("int");
@@ -664,7 +666,9 @@ namespace Risen.DataAccess.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("UserId", "SourceType", "SourceKey")
+                    b.HasIndex("UserId", "CreatedAtUtc");
+
+                    b.HasIndex("UserId", "SourceKey")
                         .IsUnique();
 
                     b.ToTable("XpTransactions");

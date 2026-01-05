@@ -116,12 +116,22 @@ namespace Risen.DataAccess.Data
             builder.Entity<LeagueTier>(e =>
             {
                 e.HasKey(x => x.Id);
+
                 e.HasIndex(x => x.Code).IsUnique();
 
-                e.Property(x => x.Name).HasMaxLength(64).IsRequired();
+                e.Property(x => x.Name)
+                    .HasMaxLength(64)
+                    .IsRequired();
+
                 e.Property(x => x.MinXp).IsRequired();
+                e.Property(x => x.MaxXp); // nullable ola bilər (Legend)
+
                 e.Property(x => x.SortOrder).IsRequired();
+
+                // istəsən sort order-un da unikallığını qoru
+                e.HasIndex(x => x.SortOrder).IsUnique();
             });
+
 
             builder.Entity<UserStats>(e =>
             {
@@ -144,10 +154,25 @@ namespace Risen.DataAccess.Data
             {
                 e.HasKey(x => x.Id);
 
-                e.Property(x => x.SourceKey).HasMaxLength(200).IsRequired();
-                e.HasIndex(x => new { x.UserId, x.SourceKey }).IsUnique(); // idempotency
+                e.Property(x => x.SourceKey)
+                    .HasMaxLength(128)
+                    .IsRequired();
 
-                e.HasIndex(x => new { x.UserId, x.CreatedAtUtc });
+                // Idempotency: eyni user + eyni sourceType + eyni sourceKey 2 dəfə yazılmasın
+                e.HasIndex(x => new { x.UserId, x.SourceType, x.SourceKey })
+                    .IsUnique();
+
+                // WARNING FIX: decimal truncation olmasın
+                e.Property(x => x.DifficultyMultiplier)
+                    .HasPrecision(9, 4);
+
+                e.Property(x => x.BaseXp).IsRequired();
+                e.Property(x => x.FinalXp).IsRequired();
+
+                e.HasOne(x => x.User)
+                    .WithMany()
+                    .HasForeignKey(x => x.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
             });
 
             builder.Entity<UserLeagueHistory>(e =>
@@ -168,25 +193,26 @@ namespace Risen.DataAccess.Data
                 e.HasIndex(x => x.LastOnlineAtUtc);
             });
 
-            var rookieId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1");
-            var bronzeId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa2");
-            var silverId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa3");
-            var goldId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa4");
-            var platinumId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa5");
-            var diamondId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa6");
-            var masterId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa7");
-            var legendId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa8");
+            var rookieId = Guid.Parse("44444444-4444-4444-4444-444444444444");
+            var bronzeId = Guid.Parse("55555555-5555-5555-5555-555555555555");
+            var silverId = Guid.Parse("66666666-6666-6666-6666-666666666666");
+            var goldId = Guid.Parse("77777777-7777-7777-7777-777777777777");
+            var platinumId = Guid.Parse("88888888-8888-8888-8888-888888888888");
+            var diamondId = Guid.Parse("99999999-9999-9999-9999-999999999999");
+            var masterId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+            var legendId = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
 
             builder.Entity<LeagueTier>().HasData(
-                new LeagueTier { Id = rookieId, Code = LeagueCode.Rookie, Name = "Rookie", MinXp = 0, MaxXp = 999, SortOrder = 1 },
-                new LeagueTier { Id = bronzeId, Code = LeagueCode.Bronze, Name = "Bronze", MinXp = 1000, MaxXp = 2999, SortOrder = 2 },
-                new LeagueTier { Id = silverId, Code = LeagueCode.Silver, Name = "Silver", MinXp = 3000, MaxXp = 5999, SortOrder = 3 },
-                new LeagueTier { Id = goldId, Code = LeagueCode.Gold, Name = "Gold", MinXp = 6000, MaxXp = 9999, SortOrder = 4 },
-                new LeagueTier { Id = platinumId, Code = LeagueCode.Platinum, Name = "Platinum", MinXp = 10000, MaxXp = 14999, SortOrder = 5 },
-                new LeagueTier { Id = diamondId, Code = LeagueCode.Diamond, Name = "Diamond", MinXp = 15000, MaxXp = 21999, SortOrder = 6 },
-                new LeagueTier { Id = masterId, Code = LeagueCode.Master, Name = "Master", MinXp = 22000, MaxXp = 29999, SortOrder = 7 },
+                new LeagueTier { Id = rookieId, Code = LeagueCode.Rookie, Name = "Rookie", MinXp = 0, MaxXp = 499, SortOrder = 1 },
+                new LeagueTier { Id = bronzeId, Code = LeagueCode.Bronze, Name = "Bronze", MinXp = 500, MaxXp = 1499, SortOrder = 2 },
+                new LeagueTier { Id = silverId, Code = LeagueCode.Silver, Name = "Silver", MinXp = 1500, MaxXp = 3499, SortOrder = 3 },
+                new LeagueTier { Id = goldId, Code = LeagueCode.Gold, Name = "Gold", MinXp = 3500, MaxXp = 6999, SortOrder = 4 },
+                new LeagueTier { Id = platinumId, Code = LeagueCode.Platinum, Name = "Platinum", MinXp = 7000, MaxXp = 11999, SortOrder = 5 },
+                new LeagueTier { Id = diamondId, Code = LeagueCode.Diamond, Name = "Diamond", MinXp = 12000, MaxXp = 19999, SortOrder = 6 },
+                new LeagueTier { Id = masterId, Code = LeagueCode.Master, Name = "Master", MinXp = 20000, MaxXp = 29999, SortOrder = 7 },
                 new LeagueTier { Id = legendId, Code = LeagueCode.Legend, Name = "Legend", MinXp = 30000, MaxXp = null, SortOrder = 8 }
             );
+
 
             builder.Entity<Quest>(e =>
             {

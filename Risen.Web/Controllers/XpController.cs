@@ -1,10 +1,8 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using Risen.Business.Services.Abstracts;
-using Risen.Contracts.Stats;
-using Risen.DataAccess.Data;
+using Risen.Contracts.Xp;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 
@@ -12,18 +10,14 @@ namespace Risen.Web.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class StatsController : ControllerBase
+    public class XpController : ControllerBase
     {
-        private readonly IStatsService _stats;
-
-        public StatsController(IStatsService stats)
-        {
-            _stats = stats;
-        }
+        private readonly IXpService _xp;
+        public XpController(IXpService xp) => _xp = xp;
 
         [Authorize]
-        [HttpGet("me")]
-        public async Task<ActionResult<MeStatsDto>> Me(CancellationToken ct = default)
+        [HttpPost("award")]
+        public async Task<ActionResult<AwardXpResponse>> Award([FromBody] AwardXpRequest req, CancellationToken ct = default)
         {
             var idStr =
                 User.FindFirstValue(ClaimTypes.NameIdentifier) ??
@@ -34,10 +28,7 @@ namespace Risen.Web.Controllers
                 return Unauthorized("User id claim is missing.");
 
             var userId = Guid.Parse(idStr);
-
-            var dto = await _stats.GetMeAsync(userId, ct);
-            return Ok(dto);
+            return Ok(await _xp.AwardAsync(userId, req, ct));
         }
-
     }
 }

@@ -68,15 +68,22 @@ builder.Services.AddAuthorization(options =>
 
 // Services
 builder.Services.Configure<QuestPolicyOptions>(builder.Configuration.GetSection("QuestPolicy"));
-builder.Services.AddScoped<ITokenService, TokenService>();
+
 builder.Services.AddScoped<IEntitlementService, EntitlementService>();
-builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IQuestEntitlementService, QuestEntitlementService>();
+
 builder.Services.AddScoped<IUniversityService, UniversityService>();
+builder.Services.AddScoped<IUniversitySuggestService, UniversitySuggestService>();
+
+builder.Services.AddScoped<IXpService, XpService>();
 builder.Services.AddScoped<IQuestService, QuestService>();
 builder.Services.AddScoped<IQuestFeedService, QuestFeedService>();
-builder.Services.AddScoped<IXpService, XpService>();
-builder.Services.AddScoped<IQuestEntitlementService, QuestEntitlementService>();
+
 builder.Services.AddScoped<ILeaderboardService, LeaderboardService>();
+builder.Services.AddScoped<IStatsService, StatsService>();
+
+builder.Services.AddScoped<ITokenService, TokenService>();
+builder.Services.AddScoped<IAuthService, AuthService>();
 
 builder.Services.AddMemoryCache();
 

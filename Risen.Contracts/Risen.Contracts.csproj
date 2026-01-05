@@ -7,7 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Folder Include="Universities\" />
+    <ProjectReference Include="..\Risen.Entities\Risen.Entities.csproj" />
   </ItemGroup>
 
 </Project>

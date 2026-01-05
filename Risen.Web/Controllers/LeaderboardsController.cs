@@ -6,6 +6,7 @@ using Risen.Business.Services.Abstracts;
 using Risen.Contracts.Leaderboards;
 using Risen.DataAccess.Data;
 using Risen.Entities.Entities;
+using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 
 namespace Risen.Web.Controllers
@@ -57,12 +58,21 @@ namespace Risen.Web.Controllers
             [FromQuery] int offset = 0,
             CancellationToken ct = default)
         {
-            var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var idStr =
+    User.FindFirstValue(ClaimTypes.NameIdentifier) ??
+    User.FindFirstValue(JwtRegisteredClaimNames.Sub) ??
+    User.FindFirstValue("sub");
 
-            var uniId = await _db.Users
+            if (string.IsNullOrWhiteSpace(idStr))
+                return Unauthorized("User id claim is missing.");
+
+            var userId = Guid.Parse(idStr);
+
+            var uniId = await _db.Users.AsNoTracking()
                 .Where(u => u.Id == userId)
                 .Select(u => u.UniversityId)
                 .FirstOrDefaultAsync(ct);
+
 
             if (uniId is null)
                 return Ok(new LeaderboardResponse(limit, offset, Array.Empty<LeaderboardEntryDto>()));

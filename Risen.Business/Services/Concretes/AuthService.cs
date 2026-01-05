@@ -42,7 +42,11 @@ namespace Risen.Business.Services.Concretes
 
         public async Task RegisterAsync(RegisterRequest req, CancellationToken ct)
         {
-            var exists = await _userManager.FindByEmailAsync(req.Email);
+            var email = req.Email.Trim().ToLowerInvariant();
+            var first = req.FirstName.Trim();
+            var last = req.LastName.Trim();
+
+            var exists = await _userManager.FindByEmailAsync(email);
             if (exists is not null)
                 throw new InvalidOperationException("This email already exists.");
 
@@ -51,47 +55,65 @@ namespace Risen.Business.Services.Concretes
             var user = new CustomIdentityUser
             {
                 Id = Guid.NewGuid(),
-                Email = req.Email,
-                UserName = req.Email,
+                Email = email,
+                UserName = email,
 
-                FirstName = req.FirstName.Trim(),
-                LastName = req.LastName.Trim(),
-
-                FullName = $"{req.FirstName} {req.LastName}".Trim(),
+                FirstName = first,
+                LastName = last,
+                FullName = $"{first} {last}".Trim(),
 
                 UniversityId = uniId,
                 EmailConfirmed = true
             };
 
             var result = await _userManager.CreateAsync(user, req.Password);
-
-
             if (!result.Succeeded)
                 throw new InvalidOperationException(string.Join(" | ", result.Errors.Select(e => e.Description)));
 
-            // user yaradıldı (CreateAsync successful) - indi stats yarat
-            var rookieTierId = await _db.LeagueTiers
+            // ---- UserStats: CreateAsync successful olduqdan sonra ----
+            var rookieTierId = await _db.LeagueTiers.AsNoTracking()
                 .Where(t => t.Code == LeagueCode.Rookie)
                 .Select(t => t.Id)
-                .FirstAsync(ct);
+                .FirstOrDefaultAsync(ct);
+
+            if (rookieTierId == Guid.Empty)
+                throw new InvalidOperationException("League tiers are not seeded. Rookie tier not found.");
 
             _db.UserStats.Add(new UserStats
             {
                 UserId = user.Id,
                 TotalXp = 0,
                 CurrentLeagueTierId = rookieTierId,
+                CurrentStreak = 0,
+                LongestStreak = 0,
+                LastStreakDateUtc = null,
                 UpdatedAtUtc = DateTime.UtcNow
             });
 
-            // Default role
+            // ---- Default role ----
             const string defaultRole = "Student";
+
             if (!await _roleManager.RoleExistsAsync(defaultRole))
-                await _roleManager.CreateAsync(new CustomIdentityRole { Id = Guid.NewGuid(), Name = defaultRole });
+            {
+                var role = new CustomIdentityRole
+                {
+                    Id = Guid.NewGuid(),
+                    Name = defaultRole,
+                    NormalizedName = defaultRole.ToUpperInvariant()
+                };
 
-            await _userManager.AddToRoleAsync(user, defaultRole);
+                var roleRes = await _roleManager.CreateAsync(role);
+                if (!roleRes.Succeeded)
+                    throw new InvalidOperationException(string.Join(" | ", roleRes.Errors.Select(e => e.Description)));
+            }
 
-            // Default plan: Free (subscription yazmaq istəyirsənsə)
+            var addRoleRes = await _userManager.AddToRoleAsync(user, defaultRole);
+            if (!addRoleRes.Succeeded)
+                throw new InvalidOperationException(string.Join(" | ", addRoleRes.Errors.Select(e => e.Description)));
+
+            // ---- Default plan: Free ----
             var freePlanId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+
             _db.UserSubscriptions.Add(new UserSubscription
             {
                 Id = Guid.NewGuid(),
@@ -100,6 +122,7 @@ namespace Risen.Business.Services.Concretes
                 IsActive = true,
                 StartsAtUtc = DateTime.UtcNow
             });
+
             await _db.SaveChangesAsync(ct);
         }
 

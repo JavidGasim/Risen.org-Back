@@ -9,6 +9,7 @@ namespace Risen.Contracts.Leaderboards
     public sealed record LeaderboardResponse(
     int Limit,
     int Offset,
-    IReadOnlyList<LeaderboardEntryDto> Items
-);
+    IReadOnlyList<LeaderboardEntryDto> Items,
+    int Total = 0 // default: köhnə çağırışlar qırılmasın
+  );
 }

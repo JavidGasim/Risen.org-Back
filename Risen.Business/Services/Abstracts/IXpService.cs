@@ -1,4 +1,5 @@
 ﻿using Risen.Contracts.Gamification;
+using Risen.Contracts.Xp;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -9,6 +10,6 @@ namespace Risen.Business.Services.Abstracts
 {
     public interface IXpService
     {
-        Task<ClaimXpResponse> ClaimAsync(Guid userId, ClaimXpRequest req, CancellationToken ct);
+        Task<AwardXpResponse> AwardAsync(Guid userId, AwardXpRequest req, CancellationToken ct);
     }
 }

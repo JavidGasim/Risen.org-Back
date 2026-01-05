@@ -14,43 +14,38 @@ namespace Risen.Business.Services.Concretes
     public class LeaderboardService : ILeaderboardService
     {
         private readonly AppDbContext _db;
-
-        public LeaderboardService(AppDbContext db)
-        {
-            _db = db;
-        }
+        public LeaderboardService(AppDbContext db) => _db = db;
 
         public async Task<LeaderboardResponse> GetGlobalAsync(LeagueCode? league, int limit, int offset, CancellationToken ct)
         {
             limit = Math.Clamp(limit, 1, 100);
             offset = Math.Max(0, offset);
 
-            var query = BuildBaseQuery();
+            var q = BuildBaseQuery();
 
-            if (league is not null)
-                query = query.Where(x => x.LeagueCode == league.Value);
+            if (league.HasValue)
+                q = q.Where(x => x.LeagueCode == league.Value);
 
-            // DB-dən yalnız “page” götürürük
-            var page = await query
+            var total = await q.CountAsync(ct);
+
+            // CS0853 fix: əvvəl SQL -> list, sonra rank ver (memory)
+            var page = await q
                 .OrderByDescending(x => x.TotalXp)
                 .ThenBy(x => x.UserId)
                 .Skip(offset)
                 .Take(limit)
                 .ToListAsync(ct);
 
-            // Rank-i memory-də veririk (EF translation problemi olmur)
-            var items = page
-                .Select((x, idx) => new LeaderboardEntryDto(
-                    offset + idx + 1,
-                    x.UserId,
-                    x.DisplayName,
-                    x.TotalXp,
-                    x.LeagueCode.ToString(),
-                    x.UniversityName
-                ))
-                .ToList();
+            var items = page.Select((x, i) => new LeaderboardEntryDto(
+                Rank: offset + i + 1,
+                UserId: x.UserId,
+                DisplayName: x.DisplayName,
+                TotalXp: x.TotalXp,
+                League: x.LeagueCode.ToString(),
+                UniversityName: x.UniversityName
+            )).ToList();
 
-            return new LeaderboardResponse(limit, offset, items);
+            return new LeaderboardResponse(limit, offset, items, total);
         }
 
         public async Task<LeaderboardResponse> GetUniversityAsync(Guid universityId, LeagueCode? league, int limit, int offset, CancellationToken ct)
@@ -58,60 +53,56 @@ namespace Risen.Business.Services.Concretes
             limit = Math.Clamp(limit, 1, 100);
             offset = Math.Max(0, offset);
 
-            var query = BuildBaseQuery()
+            var q = BuildBaseQuery()
                 .Where(x => x.UniversityId == universityId);
 
-            if (league is not null)
-                query = query.Where(x => x.LeagueCode == league.Value);
+            if (league.HasValue)
+                q = q.Where(x => x.LeagueCode == league.Value);
 
-            var page = await query
+            var total = await q.CountAsync(ct);
+
+            var page = await q
                 .OrderByDescending(x => x.TotalXp)
                 .ThenBy(x => x.UserId)
                 .Skip(offset)
                 .Take(limit)
                 .ToListAsync(ct);
 
-            var items = page
-                .Select((x, idx) => new LeaderboardEntryDto(
-                    offset + idx + 1,
-                    x.UserId,
-                    x.DisplayName,
-                    x.TotalXp,
-                    x.LeagueCode.ToString(),
-                    x.UniversityName
-                ))
-                .ToList();
+            var items = page.Select((x, i) => new LeaderboardEntryDto(
+                Rank: offset + i + 1,
+                UserId: x.UserId,
+                DisplayName: x.DisplayName,
+                TotalXp: x.TotalXp,
+                League: x.LeagueCode.ToString(),
+                UniversityName: x.UniversityName
+            )).ToList();
 
-            return new LeaderboardResponse(limit, offset, items);
+            return new LeaderboardResponse(limit, offset, items, total);
         }
 
-        /// <summary>
-        /// Leaderboard üçün minimal select (Include yoxdur). EF Core üçün sürətli query-dir.
-        /// </summary>
-        private IQueryable<BaseRow> BuildBaseQuery()
+        private IQueryable<Row> BuildBaseQuery()
         {
-            // UserStats -> Users -> LeagueTiers (+ left join Universities)
-            return
+            // UserStats + Users + LeagueTiers + Universities (left join)
+            var q =
                 from s in _db.UserStats.AsNoTracking()
                 join u in _db.Users.AsNoTracking() on s.UserId equals u.Id
                 join t in _db.LeagueTiers.AsNoTracking() on s.CurrentLeagueTierId equals t.Id
                 join uni in _db.Universities.AsNoTracking() on u.UniversityId equals uni.Id into uniLeft
                 from uni in uniLeft.DefaultIfEmpty()
-                select new BaseRow
+                select new Row
                 {
-                    UserId = u.Id,
-
-                    // Null riskini minimum etmək üçün:
-                    DisplayName = (((u.FirstName ?? "") + " " + (u.LastName ?? "")).Trim()),
-
+                    UserId = s.UserId,
+                    DisplayName = u.FullName,
                     TotalXp = s.TotalXp,
                     LeagueCode = t.Code,
                     UniversityId = u.UniversityId,
                     UniversityName = uni != null ? uni.Name : null
                 };
+
+            return q;
         }
 
-        private sealed class BaseRow
+        private sealed class Row
         {
             public Guid UserId { get; set; }
             public string DisplayName { get; set; } = default!;

@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Risen.Business.Services.Abstracts;
 using Risen.Contracts.Gamification;
+using Risen.Contracts.Xp;
 using Risen.DataAccess.Data;
 using Risen.Entities.Entities;
 using System;
@@ -17,7 +18,7 @@ namespace Risen.Business.Services.Concretes
         private readonly AppDbContext _db;
         public XpService(AppDbContext db) => _db = db;
 
-        public async Task<ClaimXpResponse> ClaimAsync(Guid userId, ClaimXpRequest req, CancellationToken ct)
+        public async Task<AwardXpResponse> AwardAsync(Guid userId, AwardXpRequest req, CancellationToken ct)
         {
             if (string.IsNullOrWhiteSpace(req.SourceKey))
                 throw new InvalidOperationException("SourceKey is required.");
@@ -25,97 +26,81 @@ namespace Risen.Business.Services.Concretes
             if (req.BaseXp <= 0)
                 throw new InvalidOperationException("BaseXp must be > 0.");
 
-            var multiplier = req.DifficultyMultiplier <= 0 ? 1m : req.DifficultyMultiplier;
-            var finalXp = (int)Math.Round(req.BaseXp * multiplier, MidpointRounding.AwayFromZero);
-            if (finalXp < 1) finalXp = 1;
+            if (req.DifficultyMultiplier <= 0)
+                throw new InvalidOperationException("DifficultyMultiplier must be > 0.");
 
-            // idempotency: eyni source üçün artıq claim edilibsə, eyni nəticəni qaytar
-            var existingTx = await _db.XpTransactions
-                .AsNoTracking()
-                .FirstOrDefaultAsync(x => x.UserId == userId && x.SourceKey == req.SourceKey, ct);
+            // 1) Stats
+            var stats = await _db.UserStats.FirstOrDefaultAsync(x => x.UserId == userId, ct);
+            if (stats is null)
+                throw new InvalidOperationException("UserStats not found. Ensure it is created on registration.");
 
-            if (existingTx is not null)
-            {
-                var stats0 = await EnsureStatsAsync(userId, ct);
-                var tier0 = await _db.LeagueTiers.AsNoTracking()
-                    .FirstAsync(t => t.Id == stats0.CurrentLeagueTierId, ct);
+            // 2) Old tier
+            var oldTier = await _db.LeagueTiers.AsNoTracking()
+                .FirstAsync(t => t.Id == stats.CurrentLeagueTierId, ct);
 
-                return new ClaimXpResponse(existingTx.FinalXp, stats0.TotalXp, tier0.Code.ToString());
-            }
+            // 3) FinalXp hesabla (int)
+            var finalXp = (int)Math.Round(req.BaseXp * req.DifficultyMultiplier, 0, MidpointRounding.AwayFromZero);
+            if (finalXp <= 0) finalXp = 1;
 
-            await using var trx = await _db.Database.BeginTransactionAsync(ct);
-
-            // stats ensure
-            var stats = await EnsureStatsAsync(userId, ct);
-
-            var oldTierId = stats.CurrentLeagueTierId;
-
+            // 4) Transaction (idempotent)
             var tx = new XpTransaction
             {
                 Id = Guid.NewGuid(),
                 UserId = userId,
-                SourceType = XpSourceType.QuestCompletion,
+                SourceType = req.SourceType,
                 SourceKey = req.SourceKey.Trim(),
                 BaseXp = req.BaseXp,
-                DifficultyMultiplier = multiplier,
+                DifficultyMultiplier = req.DifficultyMultiplier,
                 FinalXp = finalXp,
                 CreatedAtUtc = DateTime.UtcNow
             };
 
             _db.XpTransactions.Add(tx);
 
+            // 5) Stats update
             stats.TotalXp += finalXp;
             stats.UpdatedAtUtc = DateTime.UtcNow;
 
-            var newTier = await FindTierByXpAsync(stats.TotalXp, ct);
-            stats.CurrentLeagueTierId = newTier.Id;
+            // 6) League promotion
+            var newTier = await ResolveTierAsync(stats.TotalXp, ct);
+            if (newTier.Id != stats.CurrentLeagueTierId)
+                stats.CurrentLeagueTierId = newTier.Id;
 
-            // promotion history
-            if (oldTierId != newTier.Id)
+            try
             {
-                _db.UserLeagueHistories.Add(new UserLeagueHistory
-                {
-                    Id = Guid.NewGuid(),
-                    UserId = userId,
-                    FromTierId = oldTierId,
-                    ToTierId = newTier.Id,
-                    TotalXpAtChange = stats.TotalXp,
-                    ChangedAtUtc = DateTime.UtcNow
-                });
+                await _db.SaveChangesAsync(ct);
+            }
+            catch (DbUpdateException ex) when (IsUniqueViolation(ex))
+            {
+                // eyni SourceKey-lə ikinci dəfə award
+                throw new InvalidOperationException("XP already awarded for this source (idempotency hit).");
             }
 
-            await _db.SaveChangesAsync(ct);
-            await trx.CommitAsync(ct);
-
-            return new ClaimXpResponse(finalXp, stats.TotalXp, newTier.Code.ToString());
+            return new AwardXpResponse(
+                TransactionId: tx.Id,
+                FinalXp: finalXp,
+                NewTotalXp: stats.TotalXp,
+                OldLeague: oldTier.Code.ToString(),
+                NewLeague: newTier.Code.ToString()
+            );
         }
 
-        private async Task<UserStats> EnsureStatsAsync(Guid userId, CancellationToken ct)
+        private async Task<LeagueTier> ResolveTierAsync(long totalXp, CancellationToken ct)
         {
-            var stats = await _db.UserStats.FirstOrDefaultAsync(s => s.UserId == userId, ct);
-            if (stats is not null) return stats;
-
-            var rookie = await _db.LeagueTiers.FirstAsync(t => t.Code == LeagueCode.Rookie, ct);
-
-            stats = new UserStats
-            {
-                UserId = userId,
-                TotalXp = 0,
-                CurrentLeagueTierId = rookie.Id,
-                UpdatedAtUtc = DateTime.UtcNow
-            };
-
-            _db.UserStats.Add(stats);
-            await _db.SaveChangesAsync(ct);
-            return stats;
+            // MinXp <= xp && (MaxXp null || xp <= MaxXp)
+            return await _db.LeagueTiers.AsNoTracking()
+                .Where(t => t.MinXp <= totalXp && (t.MaxXp == null || totalXp <= t.MaxXp.Value))
+                .OrderByDescending(t => t.SortOrder)
+                .FirstAsync(ct);
         }
 
-        private async Task<LeagueTier> FindTierByXpAsync(long totalXp, CancellationToken ct)
+        private static bool IsUniqueViolation(DbUpdateException ex)
         {
-            // ən yüksək MinXp <= totalXp olan tier
-            return await _db.LeagueTiers
-                .OrderByDescending(t => t.MinXp)
-                .FirstAsync(t => t.MinXp <= totalXp, ct);
+            // SqlServer unique violation: 2601 / 2627
+            if (ex.InnerException is Microsoft.Data.SqlClient.SqlException sql)
+                return sql.Number is 2601 or 2627;
+
+            return false;
         }
     }
 }
