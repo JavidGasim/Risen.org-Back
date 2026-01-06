@@ -8,9 +8,15 @@ using Risen.Business.Services.Abstracts;
 using Risen.Business.Services.Concretes;
 using Risen.DataAccess.Data;
 using Risen.Entities.Entities;
+using Risen.Web.Infrastructure;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
+
+
+builder.Services.Configure<AdminSeedOptions>(
+    builder.Configuration.GetSection("AdminSeed"));
+
 
 // Add services to the container.
 
@@ -67,7 +73,9 @@ builder.Services.AddAuthorization(options =>
 });
 
 // Services
-builder.Services.Configure<QuestPolicyOptions>(builder.Configuration.GetSection("QuestPolicy"));
+builder.Services.Configure<QuestPolicyOptions>(
+    builder.Configuration.GetSection("QuestPolicy"));
+
 
 builder.Services.AddScoped<IEntitlementService, EntitlementService>();
 builder.Services.AddScoped<IQuestEntitlementService, QuestEntitlementService>();
@@ -93,6 +101,8 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
+
+await IdentitySeeder.SeedAdminAsync(app.Services, app.Environment);
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())

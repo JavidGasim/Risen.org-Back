@@ -21,7 +21,7 @@ namespace Risen.Web.Controllers
         // GET /api/quests/today?take=20
         [Authorize]
         [HttpGet("today")]
-        public async Task<ActionResult<GetTodayQuestsResponse>> Today([FromQuery] int take = 20, CancellationToken ct = default)
+        public async Task<ActionResult<TodayQuestsResponse>> Today([FromQuery] int take = 20, CancellationToken ct = default)
         {
             var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             return Ok(await _feed.GetTodayAsync(userId, take, ct));

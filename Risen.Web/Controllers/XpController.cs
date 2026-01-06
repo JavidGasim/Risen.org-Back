@@ -2,7 +2,7 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Risen.Business.Services.Abstracts;
-using Risen.Contracts.Xp;
+using Risen.Contracts.Gamification;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 
@@ -13,8 +13,13 @@ namespace Risen.Web.Controllers
     public class XpController : ControllerBase
     {
         private readonly IXpService _xp;
-        public XpController(IXpService xp) => _xp = xp;
 
+        public XpController(IXpService xp)
+        {
+            _xp = xp;
+        }
+
+        // POST /api/xp/award
         [Authorize]
         [HttpPost("award")]
         public async Task<ActionResult<AwardXpResponse>> Award([FromBody] AwardXpRequest req, CancellationToken ct = default)
@@ -28,7 +33,10 @@ namespace Risen.Web.Controllers
                 return Unauthorized("User id claim is missing.");
 
             var userId = Guid.Parse(idStr);
-            return Ok(await _xp.AwardAsync(userId, req, ct));
+
+            var res = await _xp.AwardAsync(userId, req, ct);
+            return Ok(res);
         }
+
     }
 }

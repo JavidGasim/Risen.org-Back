@@ -116,21 +116,12 @@ namespace Risen.DataAccess.Data
             builder.Entity<LeagueTier>(e =>
             {
                 e.HasKey(x => x.Id);
-
                 e.HasIndex(x => x.Code).IsUnique();
+                e.Property(x => x.Name).HasMaxLength(64).IsRequired();
 
-                e.Property(x => x.Name)
-                    .HasMaxLength(64)
-                    .IsRequired();
-
-                e.Property(x => x.MinXp).IsRequired();
-                e.Property(x => x.MaxXp); // nullable ola bilər (Legend)
-
-                e.Property(x => x.SortOrder).IsRequired();
-
-                // istəsən sort order-un da unikallığını qoru
                 e.HasIndex(x => x.SortOrder).IsUnique();
             });
+
 
 
             builder.Entity<UserStats>(e =>
@@ -154,26 +145,29 @@ namespace Risen.DataAccess.Data
             {
                 e.HasKey(x => x.Id);
 
+                // Idempotency: eyni SourceKey user üçün 1 dəfə yazılsın
+                e.HasIndex(x => new { x.UserId, x.SourceKey }).IsUnique();
+
                 e.Property(x => x.SourceKey)
                     .HasMaxLength(128)
                     .IsRequired();
 
-                // Idempotency: eyni user + eyni sourceType + eyni sourceKey 2 dəfə yazılmasın
-                e.HasIndex(x => new { x.UserId, x.SourceType, x.SourceKey })
-                    .IsUnique();
-
-                // WARNING FIX: decimal truncation olmasın
+                // WARNING fix: decimal precision
                 e.Property(x => x.DifficultyMultiplier)
-                    .HasPrecision(9, 4);
+                    .HasPrecision(6, 2);
 
                 e.Property(x => x.BaseXp).IsRequired();
                 e.Property(x => x.FinalXp).IsRequired();
+                e.Property(x => x.CreatedAtUtc).IsRequired();
 
                 e.HasOne(x => x.User)
                     .WithMany()
                     .HasForeignKey(x => x.UserId)
                     .OnDelete(DeleteBehavior.Cascade);
+
+                e.HasIndex(x => x.UserId);
             });
+
 
             builder.Entity<UserLeagueHistory>(e =>
             {
@@ -203,40 +197,60 @@ namespace Risen.DataAccess.Data
             var legendId = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
 
             builder.Entity<LeagueTier>().HasData(
-                new LeagueTier { Id = rookieId, Code = LeagueCode.Rookie, Name = "Rookie", MinXp = 0, MaxXp = 499, SortOrder = 1 },
-                new LeagueTier { Id = bronzeId, Code = LeagueCode.Bronze, Name = "Bronze", MinXp = 500, MaxXp = 1499, SortOrder = 2 },
-                new LeagueTier { Id = silverId, Code = LeagueCode.Silver, Name = "Silver", MinXp = 1500, MaxXp = 3499, SortOrder = 3 },
-                new LeagueTier { Id = goldId, Code = LeagueCode.Gold, Name = "Gold", MinXp = 3500, MaxXp = 6999, SortOrder = 4 },
-                new LeagueTier { Id = platinumId, Code = LeagueCode.Platinum, Name = "Platinum", MinXp = 7000, MaxXp = 11999, SortOrder = 5 },
-                new LeagueTier { Id = diamondId, Code = LeagueCode.Diamond, Name = "Diamond", MinXp = 12000, MaxXp = 19999, SortOrder = 6 },
-                new LeagueTier { Id = masterId, Code = LeagueCode.Master, Name = "Master", MinXp = 20000, MaxXp = 29999, SortOrder = 7 },
-                new LeagueTier { Id = legendId, Code = LeagueCode.Legend, Name = "Legend", MinXp = 30000, MaxXp = null, SortOrder = 8 }
+                new LeagueTier { Id = rookieId, Code = LeagueCode.Rookie, Name = "Rookie", MinXp = 0, MaxXp = 999, SortOrder = 1 },
+                new LeagueTier { Id = bronzeId, Code = LeagueCode.Bronze, Name = "Bronze", MinXp = 1000, MaxXp = 2499, SortOrder = 2 },
+                new LeagueTier { Id = silverId, Code = LeagueCode.Silver, Name = "Silver", MinXp = 2500, MaxXp = 4999, SortOrder = 3 },
+                new LeagueTier { Id = goldId, Code = LeagueCode.Gold, Name = "Gold", MinXp = 5000, MaxXp = 9999, SortOrder = 4 },
+                new LeagueTier { Id = platinumId, Code = LeagueCode.Platinum, Name = "Platinum", MinXp = 10000, MaxXp = 19999, SortOrder = 5 },
+                new LeagueTier { Id = diamondId, Code = LeagueCode.Diamond, Name = "Diamond", MinXp = 20000, MaxXp = 39999, SortOrder = 6 },
+                new LeagueTier { Id = masterId, Code = LeagueCode.Master, Name = "Master", MinXp = 40000, MaxXp = 79999, SortOrder = 7 },
+                new LeagueTier { Id = legendId, Code = LeagueCode.Legend, Name = "Legend", MinXp = 80000, MaxXp = null, SortOrder = 8 }
             );
 
 
             builder.Entity<Quest>(e =>
             {
                 e.HasKey(x => x.Id);
-                e.Property(x => x.Title).HasMaxLength(200).IsRequired();
-                e.Property(x => x.SubjectCode).HasMaxLength(50).IsRequired();
-                e.HasIndex(x => new { x.SubjectCode, x.Difficulty, x.IsActive });
+
+                e.Property(x => x.Title)
+                    .HasMaxLength(120)
+                    .IsRequired();
+
+                e.Property(x => x.Description)
+                    .HasMaxLength(800)   // UI üçün rahat
+                    .IsRequired();
+
+                e.Property(x => x.BaseXp).IsRequired();
+
+                e.HasIndex(x => x.IsActive);
+                e.HasIndex(x => x.Difficulty);
             });
+
 
             builder.Entity<QuestAttempt>(e =>
             {
                 e.HasKey(x => x.Id);
 
-                e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
-                e.HasOne(x => x.Quest).WithMany().HasForeignKey(x => x.QuestId).OnDelete(DeleteBehavior.Restrict);
-
-                // Date-only kimi saxla (SQL Server üçün daha düzgün)
-                e.Property(x => x.CompletedDateUtc).HasColumnType("date");
-
-                // Eyni user eyni quest-i eyni gündə 2 dəfə tamamlamasın (idempotency)
+                // user + quest + gün = 1 dəfə
                 e.HasIndex(x => new { x.UserId, x.QuestId, x.CompletedDateUtc }).IsUnique();
 
-                e.HasIndex(x => new { x.UserId, x.CompletedAtUtc });
+                e.Property(x => x.CompletedAtUtc).IsRequired();
+                e.Property(x => x.CompletedDateUtc).IsRequired();
+                e.Property(x => x.AwardedXp).IsRequired();
+
+                e.HasOne(x => x.User)
+                    .WithMany()
+                    .HasForeignKey(x => x.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                e.HasOne(x => x.Quest)
+                    .WithMany()
+                    .HasForeignKey(x => x.QuestId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                e.HasIndex(x => new { x.UserId, x.CompletedDateUtc });
             });
+
 
             // UserStats streak date-ni də "date" saxla
             builder.Entity<UserStats>(e =>

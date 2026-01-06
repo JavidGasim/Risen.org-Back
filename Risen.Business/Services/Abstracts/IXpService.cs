@@ -1,5 +1,4 @@
 ﻿using Risen.Contracts.Gamification;
-using Risen.Contracts.Xp;
 using System;
 using System.Collections.Generic;
 using System.Linq;

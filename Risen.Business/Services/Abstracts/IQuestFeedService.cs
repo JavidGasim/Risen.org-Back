@@ -9,7 +9,7 @@ namespace Risen.Business.Services.Abstracts
 {
     public interface IQuestFeedService
     {
-        Task<GetTodayQuestsResponse> GetTodayAsync(Guid userId, int take, CancellationToken ct);
+        Task<TodayQuestsResponse> GetTodayAsync(Guid userId, int take, CancellationToken ct);
 
     }
 }

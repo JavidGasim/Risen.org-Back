@@ -23,7 +23,7 @@ namespace Risen.Business.Services.Concretes
             _questEnt = questEnt;
         }
 
-        public async Task<GetTodayQuestsResponse> GetTodayAsync(Guid userId, int take, CancellationToken ct)
+        public async Task<TodayQuestsResponse> GetTodayAsync(Guid userId, int take, CancellationToken ct)
         {
             take = Math.Clamp(take, 1, 50);
 
@@ -66,7 +66,7 @@ namespace Risen.Business.Services.Concretes
                 ))
                 .ToList();
 
-            return new GetTodayQuestsResponse(dailyLimit, completedTodayCount, remaining, ordered);
+            return new TodayQuestsResponse(dailyLimit, completedTodayCount, remaining, ordered);
         }
 
         private static long DeterministicScore(Guid id, string dayKey)

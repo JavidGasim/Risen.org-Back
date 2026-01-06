@@ -21,7 +21,11 @@ namespace Risen.Business.Services.Concretes
         private readonly IQuestEntitlementService _questEnt;
         private readonly QuestPolicyOptions _opt;
 
-        public QuestService(AppDbContext db, IXpService xp, IQuestEntitlementService questEnt, IOptions<QuestPolicyOptions> opt)
+        public QuestService(
+            AppDbContext db,
+            IXpService xp,
+            IQuestEntitlementService questEnt,
+            IOptions<QuestPolicyOptions> opt)
         {
             _db = db;
             _xp = xp;
@@ -32,6 +36,8 @@ namespace Risen.Business.Services.Concretes
         public async Task<CompleteQuestResponse> CompleteAsync(Guid userId, CompleteQuestRequest req, CancellationToken ct)
         {
             var today = DateTime.UtcNow.Date;
+
+            await using var tx = await _db.Database.BeginTransactionAsync(ct);
 
             var quest = await _db.Quests.AsNoTracking()
                 .FirstOrDefaultAsync(q => q.Id == req.QuestId && q.IsActive, ct);
@@ -46,52 +52,61 @@ namespace Risen.Business.Services.Concretes
                 throw new InvalidOperationException("This quest is only for Premium.");
 
             if (quest.Difficulty == QuestDifficulty.Advanced && !advancedAllowed)
-                throw new InvalidOperationException("Advanced difficulty is close Free plan.");
+                throw new InvalidOperationException("Advanced difficulty is closed for Free plan.");
 
-            // daily limit check (bu gün neçə quest tamamlayıb)
+            // Stats olsun (seed user-lər üçün də)
+            var stats = await EnsureStatsAsync(userId, ct);
+
+            // daily limit
             var todayCount = await _db.QuestAttempts.AsNoTracking()
                 .CountAsync(a => a.UserId == userId && a.CompletedDateUtc == today, ct);
 
             if (todayCount >= dailyLimit)
                 throw new InvalidOperationException("Daily quest limit reached.");
 
-            // eyni quest bu gün tamamlanıbsa (fast pre-check)
+            // same quest/day
             var exists = await _db.QuestAttempts.AsNoTracking()
                 .AnyAsync(a => a.UserId == userId && a.QuestId == quest.Id && a.CompletedDateUtc == today, ct);
 
             if (exists)
-                throw new InvalidOperationException("This quest has already been completed today..");
+                throw new InvalidOperationException("This quest has already been completed today.");
 
-            // server-side multiplier
+            // multiplier
             var multiplier = quest.Difficulty switch
             {
                 QuestDifficulty.Advanced => _opt.AdvancedMultiplier,
                 _ => _opt.NormalMultiplier
             };
 
-            // SourceKey server tərəfdə (cheat olmasın)
-            var sourceKey = $"Quest:{quest.Id}:date:{today:yyyyMMdd}";
+            // 1) Quest XP (idempotent)
+            var questSourceKey = $"Quest:{quest.Id}:date:{today:yyyyMMdd}";
+            var questXp = await _xp.AwardAsync(
+                userId,
+                new AwardXpRequest(
+                    SourceType: XpSourceType.QuestCompletion,
+                    SourceKey: questSourceKey,
+                    BaseXp: quest.BaseXp,
+                    DifficultyMultiplier: multiplier
+                ),
+                ct
+            );
 
-            // XP claim (XpService özü idempotentdir)
-            var xpRes = await _xp.ClaimAsync(userId, new ClaimXpRequest(sourceKey, quest.BaseXp, multiplier), ct);
-
-            // Stats təmin et (bəzən register zamanı stats yazılmayıbsa)
-            var stats = await EnsureStatsAsync(userId, ct);
-
-            // attempt yaz + streak update
-            _db.QuestAttempts.Add(new QuestAttempt
-            {
-                Id = Guid.NewGuid(),
-                UserId = userId,
-                QuestId = quest.Id,
-                CompletedAtUtc = DateTime.UtcNow,
-                CompletedDateUtc = today,
-                AwardedXp = xpRes.AwardedXp
-            });
-
-            // streak
+            // 2) Streak bonus (gündə 1 dəfə)
             if (stats.LastStreakDateUtc != today)
             {
+                var streakKey = $"Streak:{today:yyyyMMdd}";
+
+                await _xp.AwardAsync(
+                    userId,
+                    new AwardXpRequest(
+                        SourceType: XpSourceType.StreakBonus,
+                        SourceKey: streakKey,
+                        BaseXp: _opt.StreakBonusXp,
+                        DifficultyMultiplier: 1.0m
+                    ),
+                    ct
+                );
+
                 var yesterday = today.AddDays(-1);
 
                 stats.CurrentStreak = (stats.LastStreakDateUtc == yesterday)
@@ -105,22 +120,34 @@ namespace Risen.Business.Services.Concretes
                 stats.UpdatedAtUtc = DateTime.UtcNow;
             }
 
+            // 3) attempt write
+            _db.QuestAttempts.Add(new QuestAttempt
+            {
+                Id = Guid.NewGuid(),
+                UserId = userId,
+                QuestId = quest.Id,
+                CompletedAtUtc = DateTime.UtcNow,
+                CompletedDateUtc = today,
+                AwardedXp = questXp.FinalXp
+            });
+
             try
             {
                 await _db.SaveChangesAsync(ct);
+                await tx.CommitAsync(ct);
             }
             catch (DbUpdateException)
             {
-                // Unikal index (UserId, QuestId, CompletedDateUtc) paralel request-də partlaya bilər
-                throw new InvalidOperationException("Bu quest bu gün artıq tamamlanıb.");
+                await tx.RollbackAsync(ct);
+                throw new InvalidOperationException("This quest has already been completed today.");
             }
 
             return new CompleteQuestResponse(
-                xpRes.AwardedXp,
-                xpRes.TotalXp,
-                xpRes.League,
-                stats.CurrentStreak,
-                stats.LongestStreak
+                AwardedXp: questXp.FinalXp,
+                TotalXp: questXp.NewTotalXp,
+                League: questXp.NewLeague,
+                CurrentStreak: stats.CurrentStreak,
+                LongestStreak: stats.LongestStreak
             );
         }
 
@@ -139,6 +166,9 @@ namespace Risen.Business.Services.Concretes
                 UserId = userId,
                 TotalXp = 0,
                 CurrentLeagueTierId = rookieId,
+                CurrentStreak = 0,
+                LongestStreak = 0,
+                LastStreakDateUtc = null,
                 UpdatedAtUtc = DateTime.UtcNow
             };
 
@@ -147,5 +177,6 @@ namespace Risen.Business.Services.Concretes
 
             return stats;
         }
+
     }
 }
