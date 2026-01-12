@@ -11,11 +11,12 @@ namespace Risen.Entities.Entities
         public Guid Id { get; set; }
 
         public string Title { get; set; } = default!;
-        public string Description { get; set; } = default!;  // <-- BUNU əlavə et
+        public string Description { get; set; } = default!;
 
-        public int BaseXp { get; set; }
+        public SubjectCode SubjectCode { get; set; } = SubjectCode.General; // <-- əlavə et
 
         public QuestDifficulty Difficulty { get; set; }
+        public int BaseXp { get; set; }
 
         public bool IsPremiumOnly { get; set; }
         public bool IsActive { get; set; } = true;

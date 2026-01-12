@@ -10,4 +10,8 @@
     <ProjectReference Include="..\Risen.Entities\Risen.Entities.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Xp\" />
+  </ItemGroup>
+
 </Project>

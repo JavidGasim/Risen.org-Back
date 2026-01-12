@@ -145,29 +145,15 @@ namespace Risen.DataAccess.Data
             {
                 e.HasKey(x => x.Id);
 
-                // Idempotency: eyni SourceKey user üçün 1 dəfə yazılsın
                 e.HasIndex(x => new { x.UserId, x.SourceKey }).IsUnique();
 
-                e.Property(x => x.SourceKey)
-                    .HasMaxLength(128)
-                    .IsRequired();
+                e.Property(x => x.SourceKey).HasMaxLength(128).IsRequired();
 
-                // WARNING fix: decimal precision
                 e.Property(x => x.DifficultyMultiplier)
-                    .HasPrecision(6, 2);
+                 .HasPrecision(6, 2); // məsələn: 10.00-a qədər problemsiz
 
-                e.Property(x => x.BaseXp).IsRequired();
-                e.Property(x => x.FinalXp).IsRequired();
                 e.Property(x => x.CreatedAtUtc).IsRequired();
-
-                e.HasOne(x => x.User)
-                    .WithMany()
-                    .HasForeignKey(x => x.UserId)
-                    .OnDelete(DeleteBehavior.Cascade);
-
-                e.HasIndex(x => x.UserId);
             });
-
 
             builder.Entity<UserLeagueHistory>(e =>
             {
@@ -212,44 +198,87 @@ namespace Risen.DataAccess.Data
             {
                 e.HasKey(x => x.Id);
 
-                e.Property(x => x.Title)
-                    .HasMaxLength(120)
-                    .IsRequired();
+                e.Property(x => x.Title).HasMaxLength(120).IsRequired();
+                e.Property(x => x.Description).HasMaxLength(800).IsRequired();
 
-                e.Property(x => x.Description)
-                    .HasMaxLength(800)   // UI üçün rahat
+                e.Property(x => x.SubjectCode)
+                    .HasConversion<int>()   // MSSQL üçün stabil
                     .IsRequired();
 
                 e.Property(x => x.BaseXp).IsRequired();
+                e.Property(x => x.Difficulty).HasConversion<int>().IsRequired();
 
+                e.HasIndex(x => x.SubjectCode);
                 e.HasIndex(x => x.IsActive);
-                e.HasIndex(x => x.Difficulty);
             });
+
+            var q1 = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1");
+            var q2 = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa2");
+            var q3 = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa3");
+            var q4 = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa4");
+
+            builder.Entity<Quest>().HasData(
+                new Quest
+                {
+                    Id = q1,
+                    Title = "Basic Algebra Warm-up",
+                    Description = "Solve 5 basic algebra simplification problems.",
+                    SubjectCode = SubjectCode.Math,
+                    Difficulty = QuestDifficulty.Normal,
+                    BaseXp = 20,
+                    IsPremiumOnly = false,
+                    IsActive = true,
+                    CreatedAtUtc = new DateTime(2026, 1, 1)
+                },
+                new Quest
+                {
+                    Id = q2,
+                    Title = "Physics: Units & Dimensions",
+                    Description = "Answer 10 questions on SI units and dimensional analysis.",
+                    SubjectCode = SubjectCode.Physics,
+                    Difficulty = QuestDifficulty.Normal,
+                    BaseXp = 25,
+                    IsPremiumOnly = false,
+                    IsActive = true,
+                    CreatedAtUtc = new DateTime(2026, 1, 1)
+                },
+                new Quest
+                {
+                    Id = q3,
+                    Title = "Programming: Arrays Basics",
+                    Description = "Complete 3 array manipulation tasks.",
+                    SubjectCode = SubjectCode.Programming,
+                    Difficulty = QuestDifficulty.Normal,
+                    BaseXp = 30,
+                    IsPremiumOnly = false,
+                    IsActive = true,
+                    CreatedAtUtc = new DateTime(2026, 1, 1)
+                },
+                new Quest
+                {
+                    Id = q4,
+                    Title = "Advanced Mechanics Challenge",
+                    Description = "Solve 1 advanced statics problem (forces & moments).",
+                    SubjectCode = SubjectCode.Mechanics,
+                    Difficulty = QuestDifficulty.Advanced,
+                    BaseXp = 50,
+                    IsPremiumOnly = true,
+                    IsActive = true,
+                    CreatedAtUtc = new DateTime(2026, 1, 1)
+                }
+            );
 
 
             builder.Entity<QuestAttempt>(e =>
             {
                 e.HasKey(x => x.Id);
 
-                // user + quest + gün = 1 dəfə
-                e.HasIndex(x => new { x.UserId, x.QuestId, x.CompletedDateUtc }).IsUnique();
+                e.HasIndex(x => new { x.UserId, x.QuestId, x.CompletedDateUtc })
+                 .IsUnique();
 
-                e.Property(x => x.CompletedAtUtc).IsRequired();
                 e.Property(x => x.CompletedDateUtc).IsRequired();
-                e.Property(x => x.AwardedXp).IsRequired();
-
-                e.HasOne(x => x.User)
-                    .WithMany()
-                    .HasForeignKey(x => x.UserId)
-                    .OnDelete(DeleteBehavior.Cascade);
-
-                e.HasOne(x => x.Quest)
-                    .WithMany()
-                    .HasForeignKey(x => x.QuestId)
-                    .OnDelete(DeleteBehavior.Cascade);
-
-                e.HasIndex(x => new { x.UserId, x.CompletedDateUtc });
             });
+
 
 
             // UserStats streak date-ni də "date" saxla

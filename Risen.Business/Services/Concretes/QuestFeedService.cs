@@ -59,7 +59,7 @@ namespace Risen.Business.Services.Concretes
                 .Select(q => new TodayQuestDto(
                     q.Id,
                     q.Title,
-                    q.SubjectCode,
+                    q.SubjectCode.ToString(),
                     q.Difficulty.ToString(),
                     q.BaseXp,
                     completedQuestIds.Contains(q.Id)

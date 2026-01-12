@@ -7,11 +7,11 @@ using System.Threading.Tasks;
 namespace Risen.Contracts.Quests
 {
     public sealed record TodayQuestDto(
-      Guid Id,
-      string Title,
-      string SubjectCode,
-      string Difficulty, // "Easy/Normal/Advanced"
-      int BaseXp,
-      bool CompletedToday
+           Guid Id,
+        string Title,
+        string SubjectCode,
+        string Difficulty,
+        int BaseXp,
+        bool IsCompletedToday
   );
 }

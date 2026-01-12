@@ -10,6 +10,6 @@ namespace Risen.Contracts.Quests
        int DailyLimit,
        int CompletedToday,
        int RemainingToday,
-       IReadOnlyList<QuestListItemDto> Items
+       IReadOnlyList<TodayQuestDto> Items
    );
 }

@@ -52,28 +52,26 @@ namespace Risen.Business.Services.Concretes
             }
 
             var items = await q
-                .OrderBy(x => x.Difficulty)
-                .ThenBy(x => x.Title)
-                .Select(x => new QuestListItemDto(
-                    x.Id,
-                    x.Title,
-                    x.Description,
-                    x.Difficulty,
-                    x.BaseXp,
-                    x.IsPremiumOnly,
-                    completedSet.Contains(x.Id)
-                ))
-                .ToListAsync(ct);
+    .OrderBy(x => x.Difficulty)
+    .ThenBy(x => x.Title)
+  .Select(x => new TodayQuestDto(
+    x.Id,
+    x.Title,
+    x.SubjectCode.ToString(),
+    x.Difficulty.ToString(),
+    x.BaseXp,
+    completedSet.Contains(x.Id)
+))
+    .ToListAsync(ct);
 
             var completedToday = completedSet.Count;
             var remaining = Math.Max(0, dailyLimit - completedToday);
-
             return new TodayQuestsResponse(
-    DailyLimit: dailyLimit,
-    CompletedToday: completedToday,
-    RemainingToday: remaining,
-    Items: items
-);
+                DailyLimit: dailyLimit,
+                CompletedToday: completedToday,
+                RemainingToday: remaining,
+                Items: items
+            );
 
 
         }

@@ -72,9 +72,10 @@ builder.Services.AddAuthorization(options =>
         p.RequireClaim("entitlement", "premium"));
 });
 
-// Services
+
 builder.Services.Configure<QuestPolicyOptions>(
     builder.Configuration.GetSection("QuestPolicy"));
+
 
 
 builder.Services.AddScoped<IEntitlementService, EntitlementService>();
