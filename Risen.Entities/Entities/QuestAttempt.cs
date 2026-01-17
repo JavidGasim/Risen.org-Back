@@ -9,18 +9,17 @@ namespace Risen.Entities.Entities
     public class QuestAttempt
     {
         public Guid Id { get; set; }
-
-        public Guid UserId { get; set; }
-        public CustomIdentityUser User { get; set; } = default!;
-
         public Guid QuestId { get; set; }
-        public Quest Quest { get; set; } = default!;
+        public Guid UserId { get; set; }
 
-        public DateTime CompletedAtUtc { get; set; } = DateTime.UtcNow;
+        public int SelectedOptionIndex { get; set; } // 0..4
+        public bool IsCorrect { get; set; }
 
-        // unikallıq üçün: “gün” ayrıca saxlanır
-        public DateTime CompletedDateUtc { get; set; }  // DateTime.UtcNow.Date
+        public int EarnedXp { get; set; }
 
-        public int AwardedXp { get; set; }
+        // === Köhnə property (servislər buna baxır) ===
+        public DateTime? CompletedDateUtc { get; set; }
+        public DateTime AnsweredAtUtc { get; set; } = DateTime.UtcNow;
+
     }
 }

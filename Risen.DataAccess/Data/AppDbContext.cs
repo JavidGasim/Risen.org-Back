@@ -4,6 +4,7 @@ using Risen.Entities.Entities;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection.Emit;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -24,6 +25,7 @@ namespace Risen.DataAccess.Data
         public DbSet<XpTransaction> XpTransactions => Set<XpTransaction>();
         public DbSet<UserLeagueHistory> UserLeagueHistories => Set<UserLeagueHistory>();
         public DbSet<Quest> Quests => Set<Quest>();
+        public DbSet<QuestOption> QuestOptions => Set<QuestOption>();
         public DbSet<QuestAttempt> QuestAttempts => Set<QuestAttempt>();
 
 
@@ -193,90 +195,24 @@ namespace Risen.DataAccess.Data
                 new LeagueTier { Id = legendId, Code = LeagueCode.Legend, Name = "Legend", MinXp = 80000, MaxXp = null, SortOrder = 8 }
             );
 
-
-            builder.Entity<Quest>(e =>
+            builder.Entity<Quest>(b =>
             {
-                e.HasKey(x => x.Id);
-
-                e.Property(x => x.Title).HasMaxLength(120).IsRequired();
-                e.Property(x => x.Description).HasMaxLength(800).IsRequired();
-
-                e.Property(x => x.SubjectCode)
-                    .HasConversion<int>()   // MSSQL üçün stabil
-                    .IsRequired();
-
-                e.Property(x => x.BaseXp).IsRequired();
-                e.Property(x => x.Difficulty).HasConversion<int>().IsRequired();
-
-                e.HasIndex(x => x.SubjectCode);
-                e.HasIndex(x => x.IsActive);
+                b.Property(x => x.QuestionText).IsRequired().HasMaxLength(2000);
+                b.HasMany(x => x.Options)
+                 .WithOne(x => x.Quest)
+                 .HasForeignKey(x => x.QuestId)
+                 .OnDelete(DeleteBehavior.Cascade);
             });
 
-            var q1 = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1");
-            var q2 = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa2");
-            var q3 = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa3");
-            var q4 = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa4");
-
-            builder.Entity<Quest>().HasData(
-                new Quest
-                {
-                    Id = q1,
-                    Title = "Basic Algebra Warm-up",
-                    Description = "Solve 5 basic algebra simplification problems.",
-                    SubjectCode = SubjectCode.Math,
-                    Difficulty = QuestDifficulty.Normal,
-                    BaseXp = 20,
-                    IsPremiumOnly = false,
-                    IsActive = true,
-                    CreatedAtUtc = new DateTime(2026, 1, 1)
-                },
-                new Quest
-                {
-                    Id = q2,
-                    Title = "Physics: Units & Dimensions",
-                    Description = "Answer 10 questions on SI units and dimensional analysis.",
-                    SubjectCode = SubjectCode.Physics,
-                    Difficulty = QuestDifficulty.Normal,
-                    BaseXp = 25,
-                    IsPremiumOnly = false,
-                    IsActive = true,
-                    CreatedAtUtc = new DateTime(2026, 1, 1)
-                },
-                new Quest
-                {
-                    Id = q3,
-                    Title = "Programming: Arrays Basics",
-                    Description = "Complete 3 array manipulation tasks.",
-                    SubjectCode = SubjectCode.Programming,
-                    Difficulty = QuestDifficulty.Normal,
-                    BaseXp = 30,
-                    IsPremiumOnly = false,
-                    IsActive = true,
-                    CreatedAtUtc = new DateTime(2026, 1, 1)
-                },
-                new Quest
-                {
-                    Id = q4,
-                    Title = "Advanced Mechanics Challenge",
-                    Description = "Solve 1 advanced statics problem (forces & moments).",
-                    SubjectCode = SubjectCode.Mechanics,
-                    Difficulty = QuestDifficulty.Advanced,
-                    BaseXp = 50,
-                    IsPremiumOnly = true,
-                    IsActive = true,
-                    CreatedAtUtc = new DateTime(2026, 1, 1)
-                }
-            );
-
-
-            builder.Entity<QuestAttempt>(e =>
+            builder.Entity<QuestOption>(b =>
             {
-                e.HasKey(x => x.Id);
+                b.Property(x => x.Text).IsRequired().HasMaxLength(1000);
+                b.HasIndex(x => new { x.QuestId, x.Index }).IsUnique(); // (QuestId, Index) unikaldır
+            });
 
-                e.HasIndex(x => new { x.UserId, x.QuestId, x.CompletedDateUtc })
-                 .IsUnique();
-
-                e.Property(x => x.CompletedDateUtc).IsRequired();
+            builder.Entity<QuestAttempt>(b =>
+            {
+                b.HasIndex(x => new { x.UserId, x.QuestId });
             });
 
 
@@ -287,6 +223,10 @@ namespace Risen.DataAccess.Data
                 e.Property(x => x.LastStreakDateUtc).HasColumnType("date");
             });
 
+            builder.Entity<QuestOption>(b =>
+            {
+                b.HasIndex(x => new { x.QuestId, x.Index }).IsUnique();
+            });
         }
     }
 }

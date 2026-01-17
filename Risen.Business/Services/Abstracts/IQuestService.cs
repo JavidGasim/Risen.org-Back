@@ -9,6 +9,7 @@ namespace Risen.Business.Services.Abstracts
 {
     public interface IQuestService
     {
-        Task<CompleteQuestResponse> CompleteAsync(Guid userId, CompleteQuestRequest req, CancellationToken ct);
+        Task<QuestDto> GetQuestAsync(Guid questId, CancellationToken ct);
+        Task<SubmitQuestAnswerResponse> SubmitAnswerAsync(Guid questId, Guid userId, int selectedIndex, CancellationToken ct);
     }
 }

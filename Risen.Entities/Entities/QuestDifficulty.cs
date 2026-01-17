@@ -8,8 +8,8 @@ namespace Risen.Entities.Entities
 {
     public enum QuestDifficulty
     {
-        Easy = 1,
-        Normal = 2,
+        Beginner = 1,
+        Intermediate = 2,
         Advanced = 3
     }
 }

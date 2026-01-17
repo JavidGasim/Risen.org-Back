@@ -10,17 +10,27 @@ namespace Risen.Entities.Entities
     {
         public Guid Id { get; set; }
 
+        // === Köhnə field-lər (servislər buna baxır) ===
         public string Title { get; set; } = default!;
-        public string Description { get; set; } = default!;
+        public string? Description { get; set; }
+        public QuestDifficulty Difficulty { get; set; } = QuestDifficulty.Beginner;
+        public string? SubjectCode { get; set; }
 
-        public SubjectCode SubjectCode { get; set; } = SubjectCode.General; // <-- əlavə et
+        public bool IsPremiumOnly { get; set; } = false;
+        public int BaseXp { get; set; } = 10;
 
-        public QuestDifficulty Difficulty { get; set; }
-        public int BaseXp { get; set; }
+        // === Yeni test formatı field-lər (MCQ) ===
+        // Əgər sualın özü Title-da saxlanacaqsa, QuestionText-ə ehtiyac olmaya bilər.
+        // Amma geriyə uyğunluq və rahatlıq üçün saxlaya bilərik.
+        public string? QuestionText { get; set; }  // opsional
 
-        public bool IsPremiumOnly { get; set; }
+        // 0..4 (A..E), yalnız 1 düzgün cavab
+        public int CorrectOptionIndex { get; set; }
+
+        public ICollection<QuestOption> Options { get; set; } = new List<QuestOption>();
+
+        // digər
         public bool IsActive { get; set; } = true;
-
         public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
     }
 }
