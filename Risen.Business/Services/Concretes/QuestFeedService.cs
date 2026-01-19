@@ -28,50 +28,77 @@ namespace Risen.Business.Services.Concretes
             take = Math.Clamp(take, 1, 50);
 
             var today = DateTime.UtcNow.Date;
+            var start = today;
+            var end = today.AddDays(1);
 
-            // plan policy (sənin wrapper-in: isPremium, plan, dailyLimit, advancedAllowed)
-            var (_, _, dailyLimit, advancedAllowed) = await _questEnt.GetQuestPolicyAsync(userId, ct);
+            // plan policy (isPremium, plan, dailyLimit, advancedAllowed)
+            var (isPremium, _, dailyLimit, advancedAllowed) = await _questEnt.GetQuestPolicyAsync(userId, ct);
 
             // bu gün tamamlanan quest sayı
             var completedTodayCount = await _db.QuestAttempts.AsNoTracking()
-                .CountAsync(a => a.UserId == userId && a.CompletedDateUtc == today, ct);
+                .CountAsync(a => a.UserId == userId
+                              && a.CompletedDateUtc != null
+                              && a.CompletedDateUtc >= start
+                              && a.CompletedDateUtc < end, ct);
 
             var remaining = Math.Max(0, dailyLimit - completedTodayCount);
 
-            // bu gün tamamlanan quest-lərin listi (Completed flag üçün)
+            // bu gün tamamlanan quest-lərin listi
             var completedQuestIds = await _db.QuestAttempts.AsNoTracking()
-                .Where(a => a.UserId == userId && a.CompletedDateUtc == today)
+                .Where(a => a.UserId == userId
+                         && a.CompletedDateUtc != null
+                         && a.CompletedDateUtc >= start
+                         && a.CompletedDateUtc < end)
                 .Select(a => a.QuestId)
                 .ToListAsync(ct);
 
-            // eligible quest-lər (Free user üçün Advanced çıxarılır)
-            var eligible = await _db.Quests.AsNoTracking()
-                .Where(q => q.IsActive)
-                .Where(q => advancedAllowed || q.Difficulty != QuestDifficulty.Advanced)
-                .Where(q => !q.IsPremiumOnly || advancedAllowed) // PremiumOnly yalnız premium-a
-                .ToListAsync(ct);
+            // eligible quest-lər
+            var q = _db.Quests.AsNoTracking()
+                .Include(x => x.Options)
+                .Where(x => x.IsActive);
+
+            if (!isPremium)
+            {
+                q = q.Where(x => !x.IsPremiumOnly);
+                if (!advancedAllowed)
+                    q = q.Where(x => x.Difficulty != QuestDifficulty.Advanced);
+            }
+            else
+            {
+                // premium user olsa da advancedAllowed false ola bilər (policy-dən asılı)
+                if (!advancedAllowed)
+                    q = q.Where(x => x.Difficulty != QuestDifficulty.Advanced);
+            }
+
+            var eligible = await q.ToListAsync(ct);
 
             // “Today rotation” — eyni gün üçün deterministic order
             var dayKey = today.ToString("yyyyMMdd");
             var ordered = eligible
-                .OrderBy(q => DeterministicScore(q.Id, dayKey))
+                .OrderBy(x => DeterministicScore(x.Id, dayKey))
                 .Take(take)
-                .Select(q => new TodayQuestDto(
-                    q.Id,
-                    q.Title,
-                    q.SubjectCode.ToString(),
-                    q.Difficulty.ToString(),
-                    q.BaseXp,
-                    completedQuestIds.Contains(q.Id)
+                .Select(x => new TodayQuestDto(
+                    Id: x.Id,
+                    Title: x.Title,
+                    XpReward: x.BaseXp, // alias varsa BaseXp-ə bağlanır
+                    IsCompletedToday: completedQuestIds.Contains(x.Id),
+                    Options: x.Options
+                        .OrderBy(o => o.Index)
+                        .Select(o => new QuestOptionDto(o.Index, o.Text))
+                        .ToList()
                 ))
                 .ToList();
 
-            return new TodayQuestsResponse(dailyLimit, completedTodayCount, remaining, ordered);
+            return new TodayQuestsResponse(
+                DailyLimit: dailyLimit,
+                CompletedToday: completedTodayCount,
+                RemainingToday: remaining,
+                Items: ordered
+            );
         }
 
         private static long DeterministicScore(Guid id, string dayKey)
         {
-            // GUID + dayKey → stabil “random-like” sıralama
             var bytes = Encoding.UTF8.GetBytes(id.ToString("N") + ":" + dayKey);
             var hash = SHA256.HashData(bytes);
             return BitConverter.ToInt64(hash, 0);

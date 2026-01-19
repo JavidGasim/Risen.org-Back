@@ -45,26 +45,29 @@ builder.Services.AddHttpClient<IHipolabsClient, HipolabsClient>(c =>
     c.Timeout = TimeSpan.FromSeconds(10);
 });
 
-// JWT Auth
-var jwtKey = builder.Configuration["Jwt:Key"]!;
-var issuer = builder.Configuration["Jwt:Issuer"]!;
-var audience = builder.Configuration["Jwt:Audience"]!;
+// JWT
+var jwt = builder.Configuration.GetSection("Jwt");
+var key = jwt["Key"]!;
+var issuer = jwt["Issuer"]!;
+var audience = jwt["Audience"]!;
 
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+builder.Services
+    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(opt =>
     {
         opt.TokenValidationParameters = new TokenValidationParameters
         {
-            ValidateIssuer = true,
-            ValidateAudience = true,
             ValidateIssuerSigningKey = true,
-            ValidateLifetime = true,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key)),
+            ValidateIssuer = true,
             ValidIssuer = issuer,
+            ValidateAudience = true,
             ValidAudience = audience,
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
+            ValidateLifetime = true,
             ClockSkew = TimeSpan.FromSeconds(30)
         };
     });
+
 
 builder.Services.AddAuthorization(options =>
 {

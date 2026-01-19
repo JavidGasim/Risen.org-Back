@@ -25,23 +25,24 @@ namespace Risen.Business.Services.Concretes
         public async Task<TodayQuestsResponse> GetTodayAsync(Guid userId, CancellationToken ct)
         {
             var today = DateTime.UtcNow.Date;
+            var start = today;
+            var end = today.AddDays(1);
 
-            var (_, _, dailyLimit, advancedAllowed) = await _ent.GetQuestPolicyAsync(userId, ct);
+            var (isPremium, _, dailyLimit, advancedAllowed) = await _ent.GetQuestPolicyAsync(userId, ct);
 
             // bugün tamamlanan questId-lər
             var completedIds = await _db.QuestAttempts.AsNoTracking()
-                .Where(a => a.UserId == userId && a.CompletedDateUtc == today)
+                .Where(a => a.UserId == userId
+                         && a.CompletedDateUtc != null
+                         && a.CompletedDateUtc >= start
+                         && a.CompletedDateUtc < end)
                 .Select(a => a.QuestId)
                 .ToListAsync(ct);
 
             var completedSet = completedIds.ToHashSet();
 
-            // quest-ləri policy-yə görə filtr edirik
-            // PremiumOnly filtrini ent service-də qaytardığın IsPremium ilə ayrıca etmək də olar,
-            // amma biz burada DB filtrində ən sadə formada edirik:
-            var (isPremium, _, _, _) = await _ent.GetQuestPolicyAsync(userId, ct);
-
             var q = _db.Quests.AsNoTracking()
+                .Include(x => x.Options)
                 .Where(x => x.IsActive);
 
             if (!isPremium)
@@ -50,39 +51,55 @@ namespace Risen.Business.Services.Concretes
                 if (!advancedAllowed)
                     q = q.Where(x => x.Difficulty != QuestDifficulty.Advanced);
             }
+            else
+            {
+                if (!advancedAllowed)
+                    q = q.Where(x => x.Difficulty != QuestDifficulty.Advanced);
+            }
 
-            var items = await q
-    .OrderBy(x => x.Difficulty)
-    .ThenBy(x => x.Title)
-  .Select(x => new TodayQuestDto(
-    x.Id,
-    x.Title,
-    x.SubjectCode.ToString(),
-    x.Difficulty.ToString(),
-    x.BaseXp,
-    completedSet.Contains(x.Id)
-))
-    .ToListAsync(ct);
+            var quests = await q
+                .OrderBy(x => x.Difficulty)
+                .ThenBy(x => x.Title)
+                .ToListAsync(ct);
+
+            var items = quests
+                .Select(x => new TodayQuestDto(
+                    Id: x.Id,
+                    Title: x.Title,
+                    XpReward: x.BaseXp,
+                    IsCompletedToday: completedSet.Contains(x.Id),
+                    Options: x.Options
+                        .OrderBy(o => o.Index)
+                        .Select(o => new QuestOptionDto(o.Index, o.Text))
+                        .ToList()
+                ))
+                .ToList();
 
             var completedToday = completedSet.Count;
             var remaining = Math.Max(0, dailyLimit - completedToday);
+
             return new TodayQuestsResponse(
                 DailyLimit: dailyLimit,
                 CompletedToday: completedToday,
                 RemainingToday: remaining,
                 Items: items
             );
-
-
         }
 
         public async Task<QuestListItemDto?> GetByIdAsync(Guid userId, Guid questId, CancellationToken ct)
         {
             var today = DateTime.UtcNow.Date;
+            var start = today;
+            var end = today.AddDays(1);
+
             var (isPremium, _, _, advancedAllowed) = await _ent.GetQuestPolicyAsync(userId, ct);
 
             var completed = await _db.QuestAttempts.AsNoTracking()
-                .AnyAsync(a => a.UserId == userId && a.QuestId == questId && a.CompletedDateUtc == today, ct);
+                .AnyAsync(a => a.UserId == userId
+                            && a.QuestId == questId
+                            && a.CompletedDateUtc != null
+                            && a.CompletedDateUtc >= start
+                            && a.CompletedDateUtc < end, ct);
 
             var q = _db.Quests.AsNoTracking()
                 .Where(x => x.Id == questId && x.IsActive);
@@ -93,8 +110,14 @@ namespace Risen.Business.Services.Concretes
                 if (!advancedAllowed)
                     q = q.Where(x => x.Difficulty != QuestDifficulty.Advanced);
             }
+            else
+            {
+                if (!advancedAllowed)
+                    q = q.Where(x => x.Difficulty != QuestDifficulty.Advanced);
+            }
 
-            return await q.Select(x => new QuestListItemDto(
+            return await q
+                .Select(x => new QuestListItemDto(
                     x.Id,
                     x.Title,
                     x.Description,
@@ -109,20 +132,32 @@ namespace Risen.Business.Services.Concretes
         public async Task<IReadOnlyList<QuestListItemDto>> GetCatalogAsync(Guid userId, CancellationToken ct)
         {
             var today = DateTime.UtcNow.Date;
+            var start = today;
+            var end = today.AddDays(1);
+
             var (isPremium, _, _, advancedAllowed) = await _ent.GetQuestPolicyAsync(userId, ct);
 
             var completedIds = await _db.QuestAttempts.AsNoTracking()
-                .Where(a => a.UserId == userId && a.CompletedDateUtc == today)
+                .Where(a => a.UserId == userId
+                         && a.CompletedDateUtc != null
+                         && a.CompletedDateUtc >= start
+                         && a.CompletedDateUtc < end)
                 .Select(a => a.QuestId)
                 .ToListAsync(ct);
 
             var completedSet = completedIds.ToHashSet();
 
-            var q = _db.Quests.AsNoTracking().Where(x => x.IsActive);
+            var q = _db.Quests.AsNoTracking()
+                .Where(x => x.IsActive);
 
             if (!isPremium)
             {
                 q = q.Where(x => !x.IsPremiumOnly);
+                if (!advancedAllowed)
+                    q = q.Where(x => x.Difficulty != QuestDifficulty.Advanced);
+            }
+            else
+            {
                 if (!advancedAllowed)
                     q = q.Where(x => x.Difficulty != QuestDifficulty.Advanced);
             }

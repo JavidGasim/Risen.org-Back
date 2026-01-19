@@ -10,7 +10,8 @@ namespace Risen.Contracts.Quests
 
     public record SubmitQuestAnswerResponse(
         bool IsCorrect,
+        int EarnedXp,
         int? CorrectOptionIndex,
-        int EarnedXp
+        bool DailyLimitReached
     );
 }

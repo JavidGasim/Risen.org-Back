@@ -11,36 +11,47 @@ namespace Risen.Business.Services.Concretes
 {
     public class TokenService : ITokenService
     {
-        private readonly IConfiguration _config;
+        private readonly IConfiguration _cfg;
 
-        public TokenService(IConfiguration config) => _config = config;
+        public TokenService(IConfiguration cfg)
+        {
+            _cfg = cfg;
+        }
 
         public string CreateAccessToken(CustomIdentityUser user, IList<string> roles, bool isPremium, string plan)
         {
-            var jwtKey = _config["Jwt:Key"]!;
-            var issuer = _config["Jwt:Issuer"]!;
-            var audience = _config["Jwt:Audience"]!;
-            var minutes = int.Parse(_config["Jwt:AccessTokenMinutes"] ?? "30");
-
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
-            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+            var jwt = _cfg.GetSection("Jwt");
+            var key = jwt["Key"]!;
+            var issuer = jwt["Issuer"]!;
+            var audience = jwt["Audience"]!;
+            var minutes = int.Parse(jwt["AccessTokenMinutes"] ?? "30");
 
             var claims = new List<Claim>
         {
-            new(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
-            new(JwtRegisteredClaimNames.Email, user.Email ?? ""),
-            new("name", user.FullName ?? user.UserName ?? ""),
-            new("plan", plan),
-            new("entitlement", isPremium ? "premium" : "free")
+            // PRIMARY: user id (GUID)
+            new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
+            // Compatibility: many controllers read NameIdentifier
+            new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+
+            new Claim(JwtRegisteredClaimNames.Email, user.Email ?? string.Empty),
+            new Claim("fullName", user.FullName ?? string.Empty),
+            new Claim("plan", plan ?? "Free"),
+            new Claim("isPremium", isPremium ? "true" : "false")
         };
 
             foreach (var r in roles)
                 claims.Add(new Claim(ClaimTypes.Role, r));
 
+            var creds = new SigningCredentials(
+                new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key)),
+                SecurityAlgorithms.HmacSha256
+            );
+
             var token = new JwtSecurityToken(
                 issuer: issuer,
                 audience: audience,
                 claims: claims,
+                notBefore: DateTime.UtcNow,
                 expires: DateTime.UtcNow.AddMinutes(minutes),
                 signingCredentials: creds
             );
@@ -48,23 +59,23 @@ namespace Risen.Business.Services.Concretes
             return new JwtSecurityTokenHandler().WriteToken(token);
         }
 
-        public (string Plain, string Hash, DateTime ExpiresAtUtc) CreateRefreshToken(int refreshDays)
+        public (string Plain, string Hash, DateTime ExpiresAtUtc) CreateRefreshToken(int days)
         {
             var bytes = RandomNumberGenerator.GetBytes(64);
             var plain = Convert.ToBase64String(bytes);
 
             var hash = HashToken(plain);
-            var expires = DateTime.UtcNow.AddDays(refreshDays);
+            var exp = DateTime.UtcNow.AddDays(days);
 
-            return (plain, hash, expires);
+            return (plain, hash, exp);
         }
 
         public string HashToken(string token)
         {
-            // token random olduğu üçün SHA256 kifayətdir
-            using var sha = SHA256.Create();
-            var hashBytes = sha.ComputeHash(Encoding.UTF8.GetBytes(token));
-            return Convert.ToHexString(hashBytes); // 64 hex chars
+            // SHA256 hash (hex)
+            var bytes = Encoding.UTF8.GetBytes(token);
+            var hash = SHA256.HashData(bytes);
+            return Convert.ToHexString(hash);
         }
     }
 }

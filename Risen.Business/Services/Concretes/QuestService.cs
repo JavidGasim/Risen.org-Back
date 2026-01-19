@@ -17,64 +17,87 @@ namespace Risen.Business.Services.Concretes
     public class QuestService : IQuestService
     {
         private readonly AppDbContext _db;
+        private readonly IQuestEntitlementService _ent;
 
-        public QuestService(AppDbContext db)
+        public QuestService(AppDbContext db, IQuestEntitlementService ent)
         {
             _db = db;
+            _ent = ent;
         }
 
-        public async Task<QuestDto> GetQuestAsync(Guid questId, CancellationToken ct)
+        public async Task<SubmitQuestAnswerResponse> SubmitAsync(Guid userId, Guid questId, int selectedOptionIndex, CancellationToken ct)
         {
-            var quest = await _db.Quests
-                .Where(q => q.Id == questId && q.IsActive)
-                .Select(q => new QuestDto(
-                    q.Id,
-                    q.QuestionText,
-                    q.Options.OrderBy(o => o.Index)
-                             .Select(o => new QuestOptionDto(o.Index, o.Text))
-                             .ToList(),
-                    q.BaseXp
-                ))
-                .FirstOrDefaultAsync(ct);
+            if (selectedOptionIndex < 0 || selectedOptionIndex > 4)
+                throw new ArgumentOutOfRangeException(nameof(selectedOptionIndex), "SelectedOptionIndex must be 0..4.");
 
-            if (quest is null) throw new KeyNotFoundException("Quest not found.");
-            return quest;
-        }
+            // policy
+            var (isPremium, _, dailyLimit, advancedAllowed) = await _ent.GetQuestPolicyAsync(userId, ct);
 
-        public async Task<SubmitQuestAnswerResponse> SubmitAnswerAsync(
-            Guid questId,
-            Guid userId,
-            int selectedIndex,
-            CancellationToken ct)
-        {
-            if (selectedIndex < 0 || selectedIndex > 4)
-                throw new ArgumentOutOfRangeException(nameof(selectedIndex), "SelectedOptionIndex must be 0..4.");
+            // quest fetch + policy enforcement
+            var questQuery = _db.Quests
+                .Include(x => x.Options)
+                .Where(x => x.Id == questId && x.IsActive);
 
-            var quest = await _db.Quests
-                .Include(q => q.Options)
-                .FirstOrDefaultAsync(q => q.Id == questId && q.IsActive, ct);
+            if (!isPremium)
+            {
+                questQuery = questQuery.Where(x => !x.IsPremiumOnly);
+                if (!advancedAllowed)
+                    questQuery = questQuery.Where(x => x.Difficulty != QuestDifficulty.Advanced);
+            }
+            else
+            {
+                if (!advancedAllowed)
+                    questQuery = questQuery.Where(x => x.Difficulty != QuestDifficulty.Advanced);
+            }
 
-            if (quest is null) throw new KeyNotFoundException("Quest not found.");
+            var quest = await questQuery.FirstOrDefaultAsync(ct);
+            if (quest is null)
+                throw new KeyNotFoundException("Quest not found or not accessible.");
 
-            // sərt qayda: 5 variant olmalıdır
+            // MCQ enforcement
             if (quest.Options.Count != 5)
                 throw new InvalidOperationException("Quest must have exactly 5 options.");
 
             if (quest.CorrectOptionIndex < 0 || quest.CorrectOptionIndex > 4)
                 throw new InvalidOperationException("Quest has invalid CorrectOptionIndex.");
 
-            var isCorrect = selectedIndex == quest.CorrectOptionIndex;
-            var earnedXp = isCorrect ? quest.BaseXp : 0;
+            var isCorrect = selectedOptionIndex == quest.CorrectOptionIndex;
 
+            var now = DateTime.UtcNow;
+            var today = now.Date;
+            var start = today;
+            var end = today.AddDays(1);
+
+            // daily limit reached?
+            var completedToday = await _db.QuestAttempts.AsNoTracking()
+                .CountAsync(a => a.UserId == userId
+                              && a.CompletedDateUtc != null
+                              && a.CompletedDateUtc >= start
+                              && a.CompletedDateUtc < end, ct);
+
+            var remaining = Math.Max(0, dailyLimit - completedToday);
+            var limitReached = remaining <= 0;
+
+            // XP rule: only first correct attempt gives XP (and only if daily limit not reached)
+            var alreadyCorrect = await _db.QuestAttempts.AsNoTracking()
+                .AnyAsync(a => a.UserId == userId && a.QuestId == questId && a.IsCorrect, ct);
+
+            var earnedXp = (!limitReached && isCorrect && !alreadyCorrect) ? quest.BaseXp : 0;
+
+            // Completed only when correct AND limit not reached
+            DateTime? completedDate = (!limitReached && isCorrect) ? now : null;
+
+            // log attempt always
             var attempt = new QuestAttempt
             {
                 Id = Guid.NewGuid(),
                 QuestId = questId,
                 UserId = userId,
-                SelectedOptionIndex = selectedIndex,
+                SelectedOptionIndex = selectedOptionIndex,
                 IsCorrect = isCorrect,
                 EarnedXp = earnedXp,
-                AnsweredAtUtc = DateTime.UtcNow
+                AnsweredAtUtc = now,
+                CompletedDateUtc = completedDate
             };
 
             _db.QuestAttempts.Add(attempt);
@@ -82,8 +105,9 @@ namespace Risen.Business.Services.Concretes
 
             return new SubmitQuestAnswerResponse(
                 IsCorrect: isCorrect,
-                CorrectOptionIndex: quest.CorrectOptionIndex, // istəmirsinizsə null edin
-                EarnedXp: earnedXp
+                EarnedXp: earnedXp,
+                CorrectOptionIndex: quest.CorrectOptionIndex, // istəmirsənsə null qaytar
+                DailyLimitReached: limitReached
             );
         }
     }

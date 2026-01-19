@@ -6,12 +6,12 @@ using System.Threading.Tasks;
 
 namespace Risen.Contracts.Quests
 {
-    public sealed record TodayQuestDto(
-           Guid Id,
-        string Title,
-        string SubjectCode,
-        string Difficulty,
-        int BaseXp,
-        bool IsCompletedToday
-  );
+    public record TodayQuestDto(
+     Guid Id,
+     string Title,
+     int XpReward,
+     bool IsCompletedToday,
+     List<QuestOptionDto> Options // yalnız əgər listdən oynadırsansa
+ );
+
 }

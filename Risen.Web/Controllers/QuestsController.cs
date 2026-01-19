@@ -12,32 +12,47 @@ namespace Risen.Web.Controllers
     [ApiController]
     public class QuestsController : ControllerBase
     {
-        private readonly IQuestService _service;
+        private readonly IQuestService _questService;
 
-        public QuestsController(IQuestService service)
+        public QuestsController(IQuestService questService)
         {
-            _service = service;
-        }
-
-        [HttpGet("{questId:guid}")]
-        public async Task<ActionResult<QuestDto>> GetQuest(Guid questId, CancellationToken ct)
-        {
-            var dto = await _service.GetQuestAsync(questId, ct);
-            return Ok(dto);
+            _questService = questService;
         }
 
         [Authorize]
         [HttpPost("{questId:guid}/submit")]
         public async Task<ActionResult<SubmitQuestAnswerResponse>> Submit(
-            Guid questId,
-            [FromBody] SubmitQuestAnswerRequest req,
-            CancellationToken ct)
+    Guid questId,
+    [FromBody] SubmitQuestAnswerRequest req,
+    CancellationToken ct)
         {
-            // JWT claim-lərinizə uyğunlaşdırın:
-            var userId = Guid.Parse(User.FindFirst("sub")!.Value);
+            try
+            {
+                if (!TryGetUserId(out var userId))
+                    return BadRequest(new { error = "Invalid or missing user id claim." });
 
-            var res = await _service.SubmitAnswerAsync(questId, userId, req.SelectedOptionIndex, ct);
-            return Ok(res);
+                var res = await _questService.SubmitAsync(userId, questId, req.SelectedOptionIndex, ct);
+                return Ok(res);
+            }
+            catch (KeyNotFoundException)
+            {
+                return NotFound();
+            }
+            catch (ArgumentOutOfRangeException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+        }
+
+        private bool TryGetUserId(out Guid userId)
+        {
+            userId = default;
+            var sub = User.FindFirstValue("sub") ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
+            return Guid.TryParse(sub, out userId);
         }
     }
 }
