@@ -12,47 +12,24 @@ namespace Risen.Web.Controllers
     [ApiController]
     public class QuestsController : ControllerBase
     {
-        private readonly IQuestService _questService;
+        private readonly IQuestService _quest;
 
-        public QuestsController(IQuestService questService)
-        {
-            _questService = questService;
-        }
+        public QuestsController(IQuestService quest) => _quest = quest;
 
         [Authorize]
-        [HttpPost("{questId:guid}/submit")]
-        public async Task<ActionResult<SubmitQuestAnswerResponse>> Submit(
-    Guid questId,
-    [FromBody] SubmitQuestAnswerRequest req,
-    CancellationToken ct)
+        [HttpPost("submit")]
+        public async Task<ActionResult<SubmitQuestAnswerResponse>> Submit([FromBody] SubmitQuestAnswerRequest req, CancellationToken ct)
         {
-            try
-            {
-                if (!TryGetUserId(out var userId))
-                    return BadRequest(new { error = "Invalid or missing user id claim." });
+            var idStr =
+                User.FindFirstValue(ClaimTypes.NameIdentifier) ??
+                User.FindFirstValue("sub");
 
-                var res = await _questService.SubmitAsync(userId, questId, req.SelectedOptionIndex, ct);
-                return Ok(res);
-            }
-            catch (KeyNotFoundException)
-            {
-                return NotFound();
-            }
-            catch (ArgumentOutOfRangeException ex)
-            {
-                return BadRequest(new { error = ex.Message });
-            }
-            catch (InvalidOperationException ex)
-            {
-                return BadRequest(new { error = ex.Message });
-            }
-        }
+            if (string.IsNullOrWhiteSpace(idStr))
+                return Unauthorized("User id claim is missing.");
 
-        private bool TryGetUserId(out Guid userId)
-        {
-            userId = default;
-            var sub = User.FindFirstValue("sub") ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
-            return Guid.TryParse(sub, out userId);
+            var userId = Guid.Parse(idStr);
+
+            return Ok(await _quest.SubmitAsync(userId, req, ct));
         }
     }
 }

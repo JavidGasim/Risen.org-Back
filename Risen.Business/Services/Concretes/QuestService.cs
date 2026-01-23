@@ -18,17 +18,32 @@ namespace Risen.Business.Services.Concretes
     {
         private readonly AppDbContext _db;
         private readonly IQuestEntitlementService _ent;
+        private readonly IXpService _xp;
+        private readonly QuestPolicyOptions _opt;
 
-        public QuestService(AppDbContext db, IQuestEntitlementService ent)
+        public QuestService(
+            AppDbContext db,
+            IQuestEntitlementService ent,
+            IXpService xp,
+            IOptions<QuestPolicyOptions> opt)
         {
             _db = db;
             _ent = ent;
+            _xp = xp;
+            _opt = opt.Value;
         }
 
-        public async Task<SubmitQuestAnswerResponse> SubmitAsync(Guid userId, Guid questId, int selectedOptionIndex, CancellationToken ct)
+        public async Task<SubmitQuestAnswerResponse> SubmitAsync(Guid userId, SubmitQuestAnswerRequest req, CancellationToken ct)
         {
-            if (selectedOptionIndex < 0 || selectedOptionIndex > 4)
-                throw new ArgumentOutOfRangeException(nameof(selectedOptionIndex), "SelectedOptionIndex must be 0..4.");
+            if (req.SelectedIndex < 0 || req.SelectedIndex > 4)
+                throw new ArgumentOutOfRangeException(nameof(req.SelectedIndex), "SelectedIndex must be 0..4.");
+
+            var now = DateTime.UtcNow;
+            var today = now.Date;
+            var start = today;
+            var end = today.AddDays(1);
+
+            await using var tx = await _db.Database.BeginTransactionAsync(ct);
 
             // policy
             var (isPremium, _, dailyLimit, advancedAllowed) = await _ent.GetQuestPolicyAsync(userId, ct);
@@ -36,7 +51,7 @@ namespace Risen.Business.Services.Concretes
             // quest fetch + policy enforcement
             var questQuery = _db.Quests
                 .Include(x => x.Options)
-                .Where(x => x.Id == questId && x.IsActive);
+                .Where(x => x.Id == req.QuestId && x.IsActive);
 
             if (!isPremium)
             {
@@ -54,61 +69,176 @@ namespace Risen.Business.Services.Concretes
             if (quest is null)
                 throw new KeyNotFoundException("Quest not found or not accessible.");
 
-            // MCQ enforcement
-            if (quest.Options.Count != 5)
+            // 5 option enforcement
+            if (quest.Options is null || quest.Options.Count != 5)
                 throw new InvalidOperationException("Quest must have exactly 5 options.");
 
             if (quest.CorrectOptionIndex < 0 || quest.CorrectOptionIndex > 4)
                 throw new InvalidOperationException("Quest has invalid CorrectOptionIndex.");
 
-            var isCorrect = selectedOptionIndex == quest.CorrectOptionIndex;
+            var selectedOption = quest.Options.FirstOrDefault(o => o.Index == req.SelectedIndex);
+            if (selectedOption is null)
+                throw new InvalidOperationException("Selected option not found.");
 
-            var now = DateTime.UtcNow;
-            var today = now.Date;
-            var start = today;
-            var end = today.AddDays(1);
+            var isCorrect = req.SelectedIndex == quest.CorrectOptionIndex;
 
-            // daily limit reached?
-            var completedToday = await _db.QuestAttempts.AsNoTracking()
+            // daily limit: yalnız CompletedDateUtc olanlar sayılır
+            var completedTodayCount = await _db.QuestAttempts.AsNoTracking()
                 .CountAsync(a => a.UserId == userId
                               && a.CompletedDateUtc != null
                               && a.CompletedDateUtc >= start
                               && a.CompletedDateUtc < end, ct);
 
-            var remaining = Math.Max(0, dailyLimit - completedToday);
-            var limitReached = remaining <= 0;
+            var limitReached = completedTodayCount >= dailyLimit;
 
-            // XP rule: only first correct attempt gives XP (and only if daily limit not reached)
-            var alreadyCorrect = await _db.QuestAttempts.AsNoTracking()
-                .AnyAsync(a => a.UserId == userId && a.QuestId == questId && a.IsCorrect, ct);
+            // bu quest bu gün artıq tamamlanıb?
+            var alreadyCompletedThisQuestToday = await _db.QuestAttempts.AsNoTracking()
+                .AnyAsync(a => a.UserId == userId
+                            && a.QuestId == req.QuestId
+                            && a.CompletedDateUtc != null
+                            && a.CompletedDateUtc >= start
+                            && a.CompletedDateUtc < end, ct);
 
-            var earnedXp = (!limitReached && isCorrect && !alreadyCorrect) ? quest.BaseXp : 0;
+            // difficulty multiplier (server-side)
+            var multiplier = quest.Difficulty == QuestDifficulty.Advanced
+                ? _opt.AdvancedMultiplier
+                : _opt.NormalMultiplier;
 
-            // Completed only when correct AND limit not reached
-            DateTime? completedDate = (!limitReached && isCorrect) ? now : null;
+            // XP yalnız: correct + limitReached deyil + bu quest bu gün tamamlanmayıb
+            AwardXpResponse? lastXpRes = null;
+            var gainedThisSubmit = 0;
 
-            // log attempt always
+            // Stats (streak üçün lazımdır)
+            var stats = await EnsureStatsAsync(userId, ct);
+
+            if (!limitReached && isCorrect && !alreadyCompletedThisQuestToday)
+            {
+                // 1) Quest XP (idempotent SourceKey)
+                var questSourceKey = $"Quest:{quest.Id}:date:{today:yyyyMMdd}";
+                var questXp = await _xp.AwardAsync(
+                    userId,
+                    new AwardXpRequest(
+                        SourceType: XpSourceType.QuestCompletion,
+                        SourceKey: questSourceKey,
+                        BaseXp: quest.BaseXp,
+                        DifficultyMultiplier: multiplier
+                    ),
+                    ct);
+
+                lastXpRes = questXp;
+                gainedThisSubmit += questXp.FinalXp;
+
+                // 2) Streak bonus (gündə 1 dəfə)
+                if (stats.LastStreakDateUtc != today)
+                {
+                    var streakSourceKey = $"Streak:{today:yyyyMMdd}";
+                    var streakXp = await _xp.AwardAsync(
+                        userId,
+                        new AwardXpRequest(
+                            SourceType: XpSourceType.StreakBonus,
+                            SourceKey: streakSourceKey,
+                            BaseXp: _opt.StreakBonusXp,
+                            DifficultyMultiplier: 1.0m
+                        ),
+                        ct);
+
+                    lastXpRes = streakXp;
+                    gainedThisSubmit += streakXp.FinalXp;
+
+                    var yesterday = today.AddDays(-1);
+                    stats.CurrentStreak = (stats.LastStreakDateUtc == yesterday)
+                        ? stats.CurrentStreak + 1
+                        : 1;
+
+                    if (stats.CurrentStreak > stats.LongestStreak)
+                        stats.LongestStreak = stats.CurrentStreak;
+
+                    stats.LastStreakDateUtc = today;
+                    stats.UpdatedAtUtc = DateTime.UtcNow;
+                }
+            }
+
+            // CompletedDateUtc yalnız “tamamlanma” sayılırsa yazılır
+            DateTime? completedDateUtc = (!limitReached && isCorrect && !alreadyCompletedThisQuestToday)
+                ? now
+                : null;
+
+            // attempt həmişə yazılır (wrong attempt də log olur)
             var attempt = new QuestAttempt
             {
                 Id = Guid.NewGuid(),
-                QuestId = questId,
+                QuestId = req.QuestId,
                 UserId = userId,
-                SelectedOptionIndex = selectedOptionIndex,
+
+                SelectedOptionId = selectedOption.Id,
                 IsCorrect = isCorrect,
-                EarnedXp = earnedXp,
-                AnsweredAtUtc = now,
-                CompletedDateUtc = completedDate
+                AwardedXp = gainedThisSubmit,
+
+                CompletedAtUtc = now,
+                CompletedDateUtc = completedDateUtc
             };
 
             _db.QuestAttempts.Add(attempt);
+
             await _db.SaveChangesAsync(ct);
+            await tx.CommitAsync(ct);
+
+            // TotalXp + League (XP verilməyibsə də normal qaytar)
+            long totalXp;
+            string league;
+
+            if (lastXpRes is not null)
+            {
+                totalXp = lastXpRes.NewTotalXp;
+                league = lastXpRes.NewLeague;
+            }
+            else
+            {
+                // heç XP verilmədisə: hazır stats-dan oxu
+                totalXp = stats.TotalXp;
+                league = await _db.LeagueTiers.AsNoTracking()
+                    .Where(t => t.Id == stats.CurrentLeagueTierId)
+                    .Select(t => t.Code.ToString())
+                    .FirstAsync(ct);
+            }
 
             return new SubmitQuestAnswerResponse(
                 IsCorrect: isCorrect,
-                EarnedXp: earnedXp,
-                CorrectOptionIndex: quest.CorrectOptionIndex, // istəmirsənsə null qaytar
-                DailyLimitReached: limitReached
+                CorrectIndex: quest.CorrectOptionIndex,
+                AwardedXp: gainedThisSubmit,
+                TotalXp: totalXp,
+                League: league,
+                CurrentStreak: stats.CurrentStreak,
+                LongestStreak: stats.LongestStreak
             );
         }
+
+        private async Task<UserStats> EnsureStatsAsync(Guid userId, CancellationToken ct)
+        {
+            var stats = await _db.UserStats.FirstOrDefaultAsync(s => s.UserId == userId, ct);
+            if (stats is not null) return stats;
+
+            var rookieId = await _db.LeagueTiers
+                .Where(t => t.Code == LeagueCode.Rookie)
+                .Select(t => t.Id)
+                .FirstAsync(ct);
+
+            stats = new UserStats
+            {
+                UserId = userId,
+                TotalXp = 0,
+                CurrentLeagueTierId = rookieId,
+                CurrentStreak = 0,
+                LongestStreak = 0,
+                LastStreakDateUtc = null,
+                UpdatedAtUtc = DateTime.UtcNow
+            };
+
+            _db.UserStats.Add(stats);
+            await _db.SaveChangesAsync(ct);
+
+            return stats;
+        }
+
     }
 }

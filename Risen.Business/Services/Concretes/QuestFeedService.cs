@@ -54,26 +54,21 @@ namespace Risen.Business.Services.Concretes
 
             // eligible quest-lər
             var q = _db.Quests.AsNoTracking()
-                .Include(x => x.Options)
-                .Where(x => x.IsActive);
+    .Include(x => x.Options)
+    .Where(x => x.IsActive);
 
             if (!isPremium)
-            {
                 q = q.Where(x => !x.IsPremiumOnly);
-                if (!advancedAllowed)
-                    q = q.Where(x => x.Difficulty != QuestDifficulty.Advanced);
-            }
-            else
-            {
-                // premium user olsa da advancedAllowed false ola bilər (policy-dən asılı)
-                if (!advancedAllowed)
-                    q = q.Where(x => x.Difficulty != QuestDifficulty.Advanced);
-            }
+
+            if (!advancedAllowed)
+                q = q.Where(x => x.Difficulty != QuestDifficulty.Advanced);
 
             var eligible = await q.ToListAsync(ct);
 
+
             // “Today rotation” — eyni gün üçün deterministic order
             var dayKey = today.ToString("yyyyMMdd");
+            var completedSet = completedQuestIds.ToHashSet();
             var ordered = eligible
                 .OrderBy(x => DeterministicScore(x.Id, dayKey))
                 .Take(take)
@@ -81,7 +76,7 @@ namespace Risen.Business.Services.Concretes
                     Id: x.Id,
                     Title: x.Title,
                     XpReward: x.BaseXp, // alias varsa BaseXp-ə bağlanır
-                    IsCompletedToday: completedQuestIds.Contains(x.Id),
+                   IsCompletedToday: completedSet.Contains(x.Id),
                     Options: x.Options
                         .OrderBy(o => o.Index)
                         .Select(o => new QuestOptionDto(o.Index, o.Text))

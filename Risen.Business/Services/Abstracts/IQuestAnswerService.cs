@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace Risen.Business.Services.Abstracts
 {
-    public interface IQuestService
+    public interface IQuestAnswerService
     {
         Task<SubmitQuestAnswerResponse> SubmitAsync(Guid userId, SubmitQuestAnswerRequest req, CancellationToken ct);
     }

@@ -14,5 +14,7 @@ namespace Risen.Entities.Entities
 
         public int Index { get; set; } // 0..4
         public string Text { get; set; } = default!;
+
+        public bool IsCorrect { get; set; } // <-- NEW (server doğrusu)
     }
 }

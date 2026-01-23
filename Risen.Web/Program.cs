@@ -97,6 +97,8 @@ builder.Services.AddScoped<IStatsService, StatsService>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 
+builder.Services.AddScoped<IQuestAnswerService, QuestAnswerService>();
+
 builder.Services.AddMemoryCache();
 
 builder.Services.AddControllers();

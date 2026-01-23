@@ -33,27 +33,28 @@ namespace Risen.DataAccess.Data
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
-            // Additional configurations can be added here if needed
 
+            // -------------------------
+            // Identity User
+            // -------------------------
             builder.Entity<CustomIdentityUser>(e =>
             {
                 e.Property(x => x.FirstName).HasMaxLength(64).IsRequired();
                 e.Property(x => x.LastName).HasMaxLength(64).IsRequired();
                 e.Property(x => x.FullName).HasMaxLength(128).IsRequired();
-            });
 
-            builder.Entity<CustomIdentityUser>(e =>
-            {
-                e.Property(x => x.FirstName).HasMaxLength(64).IsRequired();
-                e.Property(x => x.LastName).HasMaxLength(64).IsRequired();
-            });
-
-            builder.Entity<CustomIdentityUser>(e =>
-            {
-                e.Property(x => x.LastOnlineAtUtc);
                 e.HasIndex(x => x.LastOnlineAtUtc);
+
+                // User -> University FK
+                e.HasOne(x => x.University)
+                 .WithMany()
+                 .HasForeignKey(x => x.UniversityId)
+                 .OnDelete(DeleteBehavior.SetNull);
             });
 
+            // -------------------------
+            // Plan
+            // -------------------------
             builder.Entity<Plan>(e =>
             {
                 e.HasKey(x => x.Id);
@@ -79,6 +80,9 @@ namespace Risen.DataAccess.Data
                 e.Property(x => x.TokenHash).HasMaxLength(128).IsRequired();
             });
 
+            // -------------------------
+            // University
+            // -------------------------
             builder.Entity<University>(e =>
             {
                 e.HasKey(x => x.Id);
@@ -88,44 +92,27 @@ namespace Risen.DataAccess.Data
                 e.Property(x => x.NormalizedKey).HasMaxLength(300).IsRequired();
                 e.HasIndex(x => x.NormalizedKey).IsUnique();
 
-                e.Property(x => x.Country).HasMaxLength(128); // <-- IsRequired YOX
+                // Country NULL ola bilər dedin – REQUIRED ETMİRİK
+                e.Property(x => x.Country).HasMaxLength(128);
                 e.Property(x => x.StateProvince).HasMaxLength(128);
                 e.Property(x => x.PrimaryDomain).HasMaxLength(200);
                 e.Property(x => x.PrimaryWebPage).HasMaxLength(500);
             });
 
-
-            // User -> University FK
-            builder.Entity<CustomIdentityUser>(e =>
-            {
-                e.HasOne(x => x.University)
-                 .WithMany()
-                 .HasForeignKey(x => x.UniversityId)
-                 .OnDelete(DeleteBehavior.SetNull);
-            });
-
-            // Plan seed (stabil GUID-lərlə)
-            var freeId = Guid.Parse("11111111-1111-1111-1111-111111111111");
-            var premiumId = Guid.Parse("22222222-2222-2222-2222-222222222222");
-            var lifetimeId = Guid.Parse("33333333-3333-3333-3333-333333333333");
-
-            builder.Entity<Plan>().HasData(
-                new Plan { Id = freeId, Code = PlanCode.Free, Name = "Free" },
-                new Plan { Id = premiumId, Code = PlanCode.Premium, Name = "Premium" },
-                new Plan { Id = lifetimeId, Code = PlanCode.Lifetime, Name = "Lifetime" }
-            );
-
+            // -------------------------
+            // LeagueTier
+            // -------------------------
             builder.Entity<LeagueTier>(e =>
             {
                 e.HasKey(x => x.Id);
                 e.HasIndex(x => x.Code).IsUnique();
                 e.Property(x => x.Name).HasMaxLength(64).IsRequired();
-
                 e.HasIndex(x => x.SortOrder).IsUnique();
             });
 
-
-
+            // -------------------------
+            // UserStats
+            // -------------------------
             builder.Entity<UserStats>(e =>
             {
                 e.HasKey(x => x.UserId);
@@ -141,8 +128,14 @@ namespace Risen.DataAccess.Data
                  .OnDelete(DeleteBehavior.Restrict);
 
                 e.HasIndex(x => x.TotalXp);
+
+                // streak date only
+                e.Property(x => x.LastStreakDateUtc).HasColumnType("date");
             });
 
+            // -------------------------
+            // XpTransaction
+            // -------------------------
             builder.Entity<XpTransaction>(e =>
             {
                 e.HasKey(x => x.Id);
@@ -151,12 +144,14 @@ namespace Risen.DataAccess.Data
 
                 e.Property(x => x.SourceKey).HasMaxLength(128).IsRequired();
 
-                e.Property(x => x.DifficultyMultiplier)
-                 .HasPrecision(6, 2); // məsələn: 10.00-a qədər problemsiz
+                e.Property(x => x.DifficultyMultiplier).HasPrecision(6, 2);
 
                 e.Property(x => x.CreatedAtUtc).IsRequired();
             });
 
+            // -------------------------
+            // League History
+            // -------------------------
             builder.Entity<UserLeagueHistory>(e =>
             {
                 e.HasKey(x => x.Id);
@@ -166,14 +161,84 @@ namespace Risen.DataAccess.Data
                 e.HasOne(x => x.ToTier).WithMany().HasForeignKey(x => x.ToTierId).OnDelete(DeleteBehavior.Restrict);
             });
 
-            // Identity User constraints (optional but recommended)
-            builder.Entity<CustomIdentityUser>(e =>
+            // -------------------------
+            // Quest
+            // -------------------------
+            builder.Entity<Quest>(b =>
             {
-                e.Property(x => x.FirstName).HasMaxLength(64).IsRequired();
-                e.Property(x => x.LastName).HasMaxLength(64).IsRequired();
-                e.Property(x => x.FullName).HasMaxLength(128).IsRequired();
-                e.HasIndex(x => x.LastOnlineAtUtc);
+                b.HasKey(x => x.Id);
+
+                // Əgər Quest-də Title varsa:
+                b.Property(x => x.Title).HasMaxLength(256).IsRequired();
+
+                // Səndə var deyə saxlayıram:
+                b.Property(x => x.QuestionText).HasMaxLength(2000).IsRequired();
+
+                b.HasMany(x => x.Options)
+                 .WithOne(x => x.Quest)
+                 .HasForeignKey(x => x.QuestId)
+                 .OnDelete(DeleteBehavior.Cascade);
+
+                // CorrectOptionIndex (0..4)
+                b.Property(x => x.CorrectOptionIndex).IsRequired();
             });
+
+            builder.Entity<QuestOption>(b =>
+            {
+                b.HasKey(x => x.Id);
+
+                b.Property(x => x.Text).IsRequired().HasMaxLength(1000);
+                b.Property(x => x.Index).IsRequired();
+
+                // hər quest üçün 0..4 unikaldır
+                b.HasIndex(x => new { x.QuestId, x.Index }).IsUnique();
+            });
+
+            builder.Entity<QuestAttempt>(e =>
+            {
+                e.HasKey(x => x.Id);
+
+                // Submit zamanı həmişə yazılır
+                e.Property(x => x.CompletedAtUtc).IsRequired();
+
+                // bu submit-də qazandığı XP (quest + streak bonus ola bilər)
+                e.Property(x => x.AwardedXp).HasDefaultValue(0);
+
+                e.HasOne(x => x.Quest)
+                 .WithMany()
+                 .HasForeignKey(x => x.QuestId)
+                 .OnDelete(DeleteBehavior.Cascade);
+
+                e.HasOne(x => x.User)
+                 .WithMany()
+                 .HasForeignKey(x => x.UserId)
+                 .OnDelete(DeleteBehavior.Cascade);
+
+                e.HasOne(x => x.SelectedOption)
+                 .WithMany()
+                 .HasForeignKey(x => x.SelectedOptionId)
+                 .OnDelete(DeleteBehavior.Restrict);
+
+                // “Tamamlanma” yalnız CompletedDateUtc NULL deyilsə sayılır.
+                // Eyni gün eyni quest 1 dəfə tamamlanıb qeyd olunsun (correct completion).
+                e.HasIndex(x => new { x.UserId, x.QuestId, x.CompletedDateUtc })
+                 .HasFilter("[CompletedDateUtc] IS NOT NULL")
+                 .IsUnique();
+            });
+
+            // -------------------------
+            // Seeds
+            // -------------------------
+
+            var freeId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+            var premiumId = Guid.Parse("22222222-2222-2222-2222-222222222222");
+            var lifetimeId = Guid.Parse("33333333-3333-3333-3333-333333333333");
+
+            builder.Entity<Plan>().HasData(
+                new Plan { Id = freeId, Code = PlanCode.Free, Name = "Free" },
+                new Plan { Id = premiumId, Code = PlanCode.Premium, Name = "Premium" },
+                new Plan { Id = lifetimeId, Code = PlanCode.Lifetime, Name = "Lifetime" }
+            );
 
             var rookieId = Guid.Parse("44444444-4444-4444-4444-444444444444");
             var bronzeId = Guid.Parse("55555555-5555-5555-5555-555555555555");
@@ -194,39 +259,6 @@ namespace Risen.DataAccess.Data
                 new LeagueTier { Id = masterId, Code = LeagueCode.Master, Name = "Master", MinXp = 40000, MaxXp = 79999, SortOrder = 7 },
                 new LeagueTier { Id = legendId, Code = LeagueCode.Legend, Name = "Legend", MinXp = 80000, MaxXp = null, SortOrder = 8 }
             );
-
-            builder.Entity<Quest>(b =>
-            {
-                b.Property(x => x.QuestionText).IsRequired().HasMaxLength(2000);
-                b.HasMany(x => x.Options)
-                 .WithOne(x => x.Quest)
-                 .HasForeignKey(x => x.QuestId)
-                 .OnDelete(DeleteBehavior.Cascade);
-            });
-
-            builder.Entity<QuestOption>(b =>
-            {
-                b.Property(x => x.Text).IsRequired().HasMaxLength(1000);
-                b.HasIndex(x => new { x.QuestId, x.Index }).IsUnique(); // (QuestId, Index) unikaldır
-            });
-
-            builder.Entity<QuestAttempt>(b =>
-            {
-                b.HasIndex(x => new { x.UserId, x.QuestId });
-            });
-
-
-
-            // UserStats streak date-ni də "date" saxla
-            builder.Entity<UserStats>(e =>
-            {
-                e.Property(x => x.LastStreakDateUtc).HasColumnType("date");
-            });
-
-            builder.Entity<QuestOption>(b =>
-            {
-                b.HasIndex(x => new { x.QuestId, x.Index }).IsUnique();
-            });
         }
     }
 }

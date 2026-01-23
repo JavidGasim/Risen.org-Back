@@ -6,12 +6,18 @@ using System.Threading.Tasks;
 
 namespace Risen.Contracts.Quests
 {
-    public record SubmitQuestAnswerRequest(int SelectedOptionIndex);
-
-    public record SubmitQuestAnswerResponse(
-        bool IsCorrect,
-        int EarnedXp,
-        int? CorrectOptionIndex,
-        bool DailyLimitReached
+    public sealed record SubmitQuestAnswerRequest(
+        Guid QuestId,
+        int SelectedIndex // 0..4
     );
+
+    public sealed record SubmitQuestAnswerResponse(
+         bool IsCorrect,
+         int CorrectIndex,
+         int AwardedXp,
+         long TotalXp,
+         string League,
+         int CurrentStreak,
+         int LongestStreak
+     );
 }
