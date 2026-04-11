@@ -22,7 +22,7 @@ namespace Risen.Entities.Entities
         // === Yeni test formatı field-lər (MCQ) ===
         // Əgər sualın özü Title-da saxlanacaqsa, QuestionText-ə ehtiyac olmaya bilər.
         // Amma geriyə uyğunluq və rahatlıq üçün saxlaya bilərik.
-        public string? QuestionText { get; set; }  // opsional
+        public string QuestionText { get; set; } = default!; // opsional
 
         // 0..4 (A..E), yalnız 1 düzgün cavab
         public int CorrectOptionIndex { get; set; }

@@ -20,7 +20,7 @@ namespace Risen.Web.Controllers
         }
 
         // POST /api/xp/award
-        [Authorize]
+        [Authorize(Roles = "Admin")]
         [HttpPost("award")]
         public async Task<ActionResult<AwardXpResponse>> Award([FromBody] AwardXpRequest req, CancellationToken ct = default)
         {

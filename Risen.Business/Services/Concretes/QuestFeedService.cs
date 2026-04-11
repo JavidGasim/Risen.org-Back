@@ -74,7 +74,7 @@ namespace Risen.Business.Services.Concretes
                 .Take(take)
                 .Select(x => new TodayQuestDto(
                     Id: x.Id,
-                    Title: x.Title,
+                    Title: x.QuestionText,
                     XpReward: x.BaseXp, // alias varsa BaseXp-ə bağlanır
                    IsCompletedToday: completedSet.Contains(x.Id),
                     Options: x.Options

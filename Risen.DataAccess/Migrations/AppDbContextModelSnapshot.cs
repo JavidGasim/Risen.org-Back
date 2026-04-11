@@ -278,7 +278,7 @@ namespace Risen.DataAccess.Migrations
                     b.HasIndex("SortOrder")
                         .IsUnique();
 
-                    b.ToTable("LeagueTiers");
+                    b.ToTable("LeagueTiers", (string)null);
 
                     b.HasData(
                         new
@@ -373,7 +373,7 @@ namespace Risen.DataAccess.Migrations
                     b.HasIndex("Code")
                         .IsUnique();
 
-                    b.ToTable("Plans");
+                    b.ToTable("Plans", (string)null);
 
                     b.HasData(
                         new
@@ -438,7 +438,7 @@ namespace Risen.DataAccess.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Quests");
+                    b.ToTable("Quests", (string)null);
                 });
 
             modelBuilder.Entity("Risen.Entities.Entities.QuestAttempt", b =>
@@ -480,7 +480,7 @@ namespace Risen.DataAccess.Migrations
                         .IsUnique()
                         .HasFilter("[CompletedDateUtc] IS NOT NULL");
 
-                    b.ToTable("QuestAttempts");
+                    b.ToTable("QuestAttempts", (string)null);
                 });
 
             modelBuilder.Entity("Risen.Entities.Entities.QuestOption", b =>
@@ -508,7 +508,7 @@ namespace Risen.DataAccess.Migrations
                     b.HasIndex("QuestId", "Index")
                         .IsUnique();
 
-                    b.ToTable("QuestOptions");
+                    b.ToTable("QuestOptions", (string)null);
                 });
 
             modelBuilder.Entity("Risen.Entities.Entities.RefreshToken", b =>
@@ -542,7 +542,7 @@ namespace Risen.DataAccess.Migrations
                     b.HasIndex("TokenHash")
                         .IsUnique();
 
-                    b.ToTable("RefreshTokens");
+                    b.ToTable("RefreshTokens", (string)null);
                 });
 
             modelBuilder.Entity("Risen.Entities.Entities.University", b =>
@@ -582,7 +582,7 @@ namespace Risen.DataAccess.Migrations
                     b.HasIndex("NormalizedKey")
                         .IsUnique();
 
-                    b.ToTable("Universities");
+                    b.ToTable("Universities", (string)null);
                 });
 
             modelBuilder.Entity("Risen.Entities.Entities.UserLeagueHistory", b =>
@@ -614,7 +614,7 @@ namespace Risen.DataAccess.Migrations
 
                     b.HasIndex("UserId", "ChangedAtUtc");
 
-                    b.ToTable("UserLeagueHistories");
+                    b.ToTable("UserLeagueHistories", (string)null);
                 });
 
             modelBuilder.Entity("Risen.Entities.Entities.UserStats", b =>
@@ -646,7 +646,7 @@ namespace Risen.DataAccess.Migrations
 
                     b.HasIndex("TotalXp");
 
-                    b.ToTable("UserStats");
+                    b.ToTable("UserStats", (string)null);
                 });
 
             modelBuilder.Entity("Risen.Entities.Entities.UserSubscription", b =>
@@ -676,7 +676,7 @@ namespace Risen.DataAccess.Migrations
 
                     b.HasIndex("UserId", "IsActive");
 
-                    b.ToTable("UserSubscriptions");
+                    b.ToTable("UserSubscriptions", (string)null);
                 });
 
             modelBuilder.Entity("Risen.Entities.Entities.XpTransaction", b =>
@@ -714,7 +714,7 @@ namespace Risen.DataAccess.Migrations
                     b.HasIndex("UserId", "SourceKey")
                         .IsUnique();
 
-                    b.ToTable("XpTransactions");
+                    b.ToTable("XpTransactions", (string)null);
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>

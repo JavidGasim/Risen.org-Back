@@ -82,6 +82,16 @@ namespace Risen.Business.Services.Concretes
             var newTier = await FindTierByXpAsync(stats.TotalXp, ct);
             if (stats.CurrentLeagueTierId != newTier.Id)
             {
+                _db.UserLeagueHistories.Add(new UserLeagueHistory
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = userId,
+                    FromTierId = stats.CurrentLeagueTierId,
+                    ToTierId = newTier.Id,
+                    TotalXpAtChange = stats.TotalXp,
+                    ChangedAtUtc = DateTime.UtcNow
+                });
+
                 stats.CurrentLeagueTierId = newTier.Id;
                 stats.UpdatedAtUtc = DateTime.UtcNow;
             }

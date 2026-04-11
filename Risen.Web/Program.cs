@@ -9,9 +9,18 @@ using Risen.Business.Services.Concretes;
 using Risen.DataAccess.Data;
 using Risen.Entities.Entities;
 using Risen.Web.Infrastructure;
+using Risen.Web.Middlewares;
+using Serilog;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
+
+Log.Logger = new LoggerConfiguration()
+    .MinimumLevel.Information()
+    .WriteTo.File("Logs/log.txt", rollingInterval: RollingInterval.Day)
+    .CreateLogger();
+
+builder.Host.UseSerilog();
 
 
 builder.Services.Configure<AdminSeedOptions>(
@@ -72,7 +81,7 @@ builder.Services
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("PremiumOnly", p =>
-        p.RequireClaim("entitlement", "premium"));
+    p.RequireClaim("isPremium", "true"));
 });
 
 
@@ -120,6 +129,8 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 
 app.UseAuthentication();
+app.UseMiddleware<LastOnlineMiddleware>();
+app.UseMiddleware<ExceptionMiddleware>();
 app.UseAuthorization();
 
 app.MapControllers();
