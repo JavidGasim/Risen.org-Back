@@ -13,10 +13,12 @@ namespace Risen.Web.Controllers
     public class XpController : ControllerBase
     {
         private readonly IXpService _xp;
+        private readonly ILogger _logger;
 
-        public XpController(IXpService xp)
+        public XpController(IXpService xp, ILogger<XpController> logger)
         {
             _xp = xp;
+            _logger = logger;
         }
 
         // POST /api/xp/award
@@ -35,6 +37,8 @@ namespace Risen.Web.Controllers
             var userId = Guid.Parse(idStr);
 
             var res = await _xp.AwardAsync(userId, req, ct);
+            _logger.LogInformation("Awarded {FinalXp} XP to user {UserId} (new total: {NewTotalXp}, new league: {NewLeague}) for source {SourceType}:{SourceKey}",
+                res.FinalXp, userId, res.NewTotalXp, res.NewLeague, req.SourceType, req.SourceKey);
             return Ok(res);
         }
 

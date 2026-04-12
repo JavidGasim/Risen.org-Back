@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Risen.DataAccess.Data;
 
@@ -11,9 +12,11 @@ using Risen.DataAccess.Data;
 namespace Risen.DataAccess.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260412212355_mig14")]
+    partial class mig14
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -270,9 +273,6 @@ namespace Risen.DataAccess.Migrations
                     b.Property<int>("SortOrder")
                         .HasColumnType("int");
 
-                    b.Property<int>("Weight")
-                        .HasColumnType("int");
-
                     b.HasKey("Id");
 
                     b.HasIndex("Code")
@@ -291,8 +291,7 @@ namespace Risen.DataAccess.Migrations
                             MaxXp = 999L,
                             MinXp = 0L,
                             Name = "Rookie",
-                            SortOrder = 1,
-                            Weight = 0
+                            SortOrder = 1
                         },
                         new
                         {
@@ -301,8 +300,7 @@ namespace Risen.DataAccess.Migrations
                             MaxXp = 2499L,
                             MinXp = 1000L,
                             Name = "Bronze",
-                            SortOrder = 2,
-                            Weight = 10
+                            SortOrder = 2
                         },
                         new
                         {
@@ -311,8 +309,7 @@ namespace Risen.DataAccess.Migrations
                             MaxXp = 4999L,
                             MinXp = 2500L,
                             Name = "Silver",
-                            SortOrder = 3,
-                            Weight = 20
+                            SortOrder = 3
                         },
                         new
                         {
@@ -321,8 +318,7 @@ namespace Risen.DataAccess.Migrations
                             MaxXp = 9999L,
                             MinXp = 5000L,
                             Name = "Gold",
-                            SortOrder = 4,
-                            Weight = 35
+                            SortOrder = 4
                         },
                         new
                         {
@@ -331,8 +327,7 @@ namespace Risen.DataAccess.Migrations
                             MaxXp = 19999L,
                             MinXp = 10000L,
                             Name = "Platinum",
-                            SortOrder = 5,
-                            Weight = 50
+                            SortOrder = 5
                         },
                         new
                         {
@@ -341,8 +336,7 @@ namespace Risen.DataAccess.Migrations
                             MaxXp = 39999L,
                             MinXp = 20000L,
                             Name = "Diamond",
-                            SortOrder = 6,
-                            Weight = 70
+                            SortOrder = 6
                         },
                         new
                         {
@@ -351,8 +345,7 @@ namespace Risen.DataAccess.Migrations
                             MaxXp = 79999L,
                             MinXp = 40000L,
                             Name = "Master",
-                            SortOrder = 7,
-                            Weight = 90
+                            SortOrder = 7
                         },
                         new
                         {
@@ -360,8 +353,7 @@ namespace Risen.DataAccess.Migrations
                             Code = 8,
                             MinXp = 80000L,
                             Name = "Legend",
-                            SortOrder = 8,
-                            Weight = 120
+                            SortOrder = 8
                         });
                 });
 
@@ -644,12 +636,6 @@ namespace Risen.DataAccess.Migrations
 
                     b.Property<int>("LongestStreak")
                         .HasColumnType("int");
-
-                    b.Property<decimal>("RisenScore")
-                        .ValueGeneratedOnAdd()
-                        .HasPrecision(10, 2)
-                        .HasColumnType("decimal(10,2)")
-                        .HasDefaultValue(0m);
 
                     b.Property<long>("TotalXp")
                         .HasColumnType("bigint");

@@ -65,7 +65,7 @@ namespace Risen.Business.Services.Concretes
             var items = quests
                 .Select(x => new TodayQuestDto(
                     Id: x.Id,
-                    Title: x.Title,
+                    Title: x.QuestionText,
                     XpReward: x.BaseXp,
                     IsCompletedToday: completedSet.Contains(x.Id),
                     Options: x.Options

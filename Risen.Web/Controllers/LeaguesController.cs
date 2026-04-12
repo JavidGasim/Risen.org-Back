@@ -12,20 +12,30 @@ namespace Risen.Web.Controllers
     public class LeaguesController : ControllerBase
     {
         private readonly AppDbContext _db;
-        public LeaguesController(AppDbContext db) => _db = db;
+        private readonly ILogger<LeaguesController> _logger;
+        public LeaguesController(AppDbContext db, ILogger<LeaguesController> logger)
+        {
+            _db = db;
+            _logger = logger;
+        }
 
         [Authorize]
         [HttpGet("me")]
         public async Task<IActionResult> Me(CancellationToken ct)
         {
             var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-
+            _logger.LogInformation("User {UserId} accessed /api/leagues/me", userId);
             var stats = await _db.UserStats.AsNoTracking()
                 .Include(s => s.CurrentLeagueTier)
                 .FirstOrDefaultAsync(s => s.UserId == userId, ct);
 
-            if (stats is null) return Ok(new { totalXp = 0, league = "Rookie" });
+            if (stats is null)
+            {
+                _logger.LogInformation("User {UserId} has no stats, returning default values.", userId);
+                return Ok(new { totalXp = 0, league = "Rookie" });
+            }
 
+            _logger.LogInformation("User {UserId} has stats, returning values.", userId);
             return Ok(new
             {
                 totalXp = stats.TotalXp,

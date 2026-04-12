@@ -89,6 +89,21 @@ builder.Services.Configure<QuestPolicyOptions>(
     builder.Configuration.GetSection("QuestPolicy"));
 
 
+var allowedOrigins = builder.Configuration
+    .GetSection("AllowedOrigins")
+    .Get<string[]>() ?? Array.Empty<string>();
+
+builder.Services.AddCors(opt =>
+{
+    opt.AddDefaultPolicy(p =>
+    {
+        p.WithOrigins(allowedOrigins)
+         .AllowAnyMethod()
+         .AllowAnyHeader()
+         .AllowCredentials();
+    });
+});
+
 
 builder.Services.AddScoped<IEntitlementService, EntitlementService>();
 builder.Services.AddScoped<IQuestEntitlementService, QuestEntitlementService>();
@@ -105,8 +120,6 @@ builder.Services.AddScoped<IStatsService, StatsService>();
 
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
-
-builder.Services.AddScoped<IQuestAnswerService, QuestAnswerService>();
 
 builder.Services.AddMemoryCache();
 
@@ -126,11 +139,14 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+app.UseMiddleware<ExceptionMiddleware>();
+
 app.UseHttpsRedirection();
+
+app.UseCors();
 
 app.UseAuthentication();
 app.UseMiddleware<LastOnlineMiddleware>();
-app.UseMiddleware<ExceptionMiddleware>();
 app.UseAuthorization();
 
 app.MapControllers();

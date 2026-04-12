@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Risen.Business.Exceptions;
 using Risen.Business.Services.Abstracts;
 using Risen.Contracts.Auth;
 using Risen.DataAccess.Data;
@@ -48,7 +49,7 @@ namespace Risen.Business.Services.Concretes
 
             var exists = await _userManager.FindByEmailAsync(email);
             if (exists is not null)
-                throw new InvalidOperationException("This email already exists.");
+                throw new BadRequestException("This email already exists.");
 
             var uniId = await _universityService.UpsertAndGetIdAsync(req.UniversityName, ct);
 
@@ -130,11 +131,11 @@ namespace Risen.Business.Services.Concretes
         {
             var user = await _userManager.FindByEmailAsync(req.Email);
             if (user is null)
-                throw new InvalidOperationException("Email or password is wrong.");
+                throw new BadRequestException("Email or password is wrong.");
 
             var check = await _signInManager.CheckPasswordSignInAsync(user, req.Password, lockoutOnFailure: true);
             if (!check.Succeeded)
-                throw new InvalidOperationException("Email or password is wrong.");
+                throw new BadRequestException("Email or password is wrong.");
 
             var roles = await _userManager.GetRolesAsync(user);
             var (isPremium, plan) = await _entitlementService.GetUserEntitlementAsync(user.Id, ct);
@@ -170,7 +171,7 @@ namespace Risen.Business.Services.Concretes
 
             var user = await _userManager.FindByIdAsync(stored.UserId.ToString());
             if (user is null)
-                throw new InvalidOperationException("User couldn't find.");
+                throw new NotFoundException("User couldn't find.");
 
             var roles = await _userManager.GetRolesAsync(user);
             var (isPremium, plan) = await _entitlementService.GetUserEntitlementAsync(user.Id, ct);

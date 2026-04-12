@@ -12,10 +12,12 @@ namespace Risen.Web.Controllers
     public class QuestsFeedController : ControllerBase
     {
         private readonly IQuestFeedService _feed;
+        private readonly ILogger<QuestsFeedController> _logger;
 
-        public QuestsFeedController(IQuestFeedService feed)
+        public QuestsFeedController(IQuestFeedService feed, ILogger<QuestsFeedController> logger)
         {
             _feed = feed;
+            _logger = logger;
         }
 
         // GET /api/quests/today?take=20
@@ -24,6 +26,7 @@ namespace Risen.Web.Controllers
         public async Task<ActionResult<TodayQuestsResponse>> Today([FromQuery] int take = 20, CancellationToken ct = default)
         {
             var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            _logger.LogInformation("User {UserId} requested today's quests feed with take={Take}", userId, take);
             return Ok(await _feed.GetTodayAsync(userId, take, ct));
         }
     }

@@ -8,24 +8,25 @@ namespace Risen.Contracts.Stats
 {
     public sealed record MeStatsDto(
      Guid UserId,
-        string FirstName,
-        string LastName,
-        string FullName,
-        string Email,
-        string? UniversityName,
+     string FirstName,
+     string LastName,
+     string FullName,
+     string Email,
+     string? UniversityName,
 
-        long TotalXp,
-        string LeagueCode,
-        string LeagueName,
+     long TotalXp,
+     string LeagueCode,
+     string LeagueName,
+     decimal RisenScore,      // ← əlavə et
 
-        int CurrentStreak,
-        int LongestStreak,
-        DateTime? LastStreakDateUtc,
+     int CurrentStreak,
+     int LongestStreak,
+     DateTime? LastStreakDateUtc,
 
-        DateTime CreatedAtUtc,
-        DateTime? LastOnlineAtUtc,
+     DateTime CreatedAtUtc,
+     DateTime? LastOnlineAtUtc,
 
-        string Plan,
-        bool IsPremium
-);
+     string Plan,
+     bool IsPremium
+ );
 }

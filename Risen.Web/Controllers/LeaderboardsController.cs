@@ -17,11 +17,13 @@ namespace Risen.Web.Controllers
     {
         private readonly ILeaderboardService _svc;
         private readonly AppDbContext _db;
+        private readonly ILogger<LeaderboardsController> _logger;
 
-        public LeaderboardsController(ILeaderboardService svc, AppDbContext db)
+        public LeaderboardsController(ILeaderboardService svc, AppDbContext db, ILogger<LeaderboardsController> logger)
         {
             _svc = svc;
             _db = db;
+            _logger = logger;
         }
 
         // GET /api/leaderboards/global?league=Gold&limit=50&offset=0
@@ -33,6 +35,7 @@ namespace Risen.Web.Controllers
             CancellationToken ct = default)
         {
             var leagueCode = ParseLeague(league);
+            _logger.LogInformation("Fetching global leaderboard for league {League}, limit {Limit}, offset {Offset}", leagueCode, limit, offset);
             return Ok(await _svc.GetGlobalAsync(leagueCode, limit, offset, ct));
         }
 
@@ -46,6 +49,7 @@ namespace Risen.Web.Controllers
             CancellationToken ct = default)
         {
             var leagueCode = ParseLeague(league);
+            _logger.LogInformation("Fetching university leaderboard for university {UniversityId}, league {League}, limit {Limit}, offset {Offset}", universityId, leagueCode, limit, offset);
             return Ok(await _svc.GetUniversityAsync(universityId, leagueCode, limit, offset, ct));
         }
 
@@ -75,9 +79,13 @@ namespace Risen.Web.Controllers
 
 
             if (uniId is null)
+            {
+                _logger.LogWarning("User {UserId} does not have an associated university.", userId);
                 return Ok(new LeaderboardResponse(limit, offset, Array.Empty<LeaderboardEntryDto>()));
+            }
 
             var leagueCode = ParseLeague(league);
+            _logger.LogInformation("Fetching my university leaderboard for user {UserId}, university {UniversityId}, league {League}, limit {Limit}, offset {Offset}", userId, uniId, leagueCode, limit, offset);
             return Ok(await _svc.GetUniversityAsync(uniId.Value, leagueCode, limit, offset, ct));
         }
 

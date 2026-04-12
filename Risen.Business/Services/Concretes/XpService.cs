@@ -1,5 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Risen.Business.Exceptions;
 using Risen.Business.Services.Abstracts;
+using Risen.Business.Utils;
 using Risen.Contracts.Gamification;
 using Risen.DataAccess.Data;
 using Risen.Entities.Entities;
@@ -23,10 +25,11 @@ namespace Risen.Business.Services.Concretes
 
         public async Task<AwardXpResponse> AwardAsync(Guid userId, AwardXpRequest req, CancellationToken ct)
         {
-            if (userId == Guid.Empty) throw new InvalidOperationException("Invalid user id.");
+            if (userId == Guid.Empty) throw new BadRequestException("Invalid user id.");
             if (req is null) throw new InvalidOperationException("Request is null.");
             if (string.IsNullOrWhiteSpace(req.SourceKey)) throw new InvalidOperationException("SourceKey is required.");
-            if (req.BaseXp <= 0) throw new InvalidOperationException("BaseXp must be > 0.");
+            if (req.BaseXp <= 0) throw new BadRequestException("BaseXp must be > 0.");
+
 
             var sourceKey = req.SourceKey.Trim();
 
@@ -95,6 +98,13 @@ namespace Risen.Business.Services.Concretes
                 stats.CurrentLeagueTierId = newTier.Id;
                 stats.UpdatedAtUtc = DateTime.UtcNow;
             }
+
+            // Risen Score — tier dəyişsə də dəyişməsə də yenilə
+            stats.RisenScore = RisenScoreCalculator.Calculate(
+                newTier.Weight,
+                stats.TotalXp,
+                stats.CurrentStreak
+            );
 
             try
             {

@@ -106,8 +106,9 @@ namespace Risen.DataAccess.Data
             {
                 e.HasKey(x => x.Id);
                 e.HasIndex(x => x.Code).IsUnique();
-                e.Property(x => x.Name).HasMaxLength(64).IsRequired();
                 e.HasIndex(x => x.SortOrder).IsUnique();
+                e.Property(x => x.Name).HasMaxLength(64).IsRequired();
+                e.Property(x => x.Weight).IsRequired();  // ← əlavə et
             });
 
             // -------------------------
@@ -131,6 +132,9 @@ namespace Risen.DataAccess.Data
 
                 // streak date only
                 e.Property(x => x.LastStreakDateUtc).HasColumnType("date");
+                e.Property(x => x.RisenScore)
+                 .HasPrecision(10, 2)
+                 .HasDefaultValue(0);
             });
 
             // -------------------------
@@ -250,15 +254,15 @@ namespace Risen.DataAccess.Data
             var legendId = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
 
             builder.Entity<LeagueTier>().HasData(
-                new LeagueTier { Id = rookieId, Code = LeagueCode.Rookie, Name = "Rookie", MinXp = 0, MaxXp = 999, SortOrder = 1 },
-                new LeagueTier { Id = bronzeId, Code = LeagueCode.Bronze, Name = "Bronze", MinXp = 1000, MaxXp = 2499, SortOrder = 2 },
-                new LeagueTier { Id = silverId, Code = LeagueCode.Silver, Name = "Silver", MinXp = 2500, MaxXp = 4999, SortOrder = 3 },
-                new LeagueTier { Id = goldId, Code = LeagueCode.Gold, Name = "Gold", MinXp = 5000, MaxXp = 9999, SortOrder = 4 },
-                new LeagueTier { Id = platinumId, Code = LeagueCode.Platinum, Name = "Platinum", MinXp = 10000, MaxXp = 19999, SortOrder = 5 },
-                new LeagueTier { Id = diamondId, Code = LeagueCode.Diamond, Name = "Diamond", MinXp = 20000, MaxXp = 39999, SortOrder = 6 },
-                new LeagueTier { Id = masterId, Code = LeagueCode.Master, Name = "Master", MinXp = 40000, MaxXp = 79999, SortOrder = 7 },
-                new LeagueTier { Id = legendId, Code = LeagueCode.Legend, Name = "Legend", MinXp = 80000, MaxXp = null, SortOrder = 8 }
-            );
+    new LeagueTier { Id = rookieId, Code = LeagueCode.Rookie, Name = "Rookie", MinXp = 0, MaxXp = 999, SortOrder = 1, Weight = 0 },
+    new LeagueTier { Id = bronzeId, Code = LeagueCode.Bronze, Name = "Bronze", MinXp = 1000, MaxXp = 2499, SortOrder = 2, Weight = 10 },
+    new LeagueTier { Id = silverId, Code = LeagueCode.Silver, Name = "Silver", MinXp = 2500, MaxXp = 4999, SortOrder = 3, Weight = 20 },
+    new LeagueTier { Id = goldId, Code = LeagueCode.Gold, Name = "Gold", MinXp = 5000, MaxXp = 9999, SortOrder = 4, Weight = 35 },
+    new LeagueTier { Id = platinumId, Code = LeagueCode.Platinum, Name = "Platinum", MinXp = 10000, MaxXp = 19999, SortOrder = 5, Weight = 50 },
+    new LeagueTier { Id = diamondId, Code = LeagueCode.Diamond, Name = "Diamond", MinXp = 20000, MaxXp = 39999, SortOrder = 6, Weight = 70 },
+    new LeagueTier { Id = masterId, Code = LeagueCode.Master, Name = "Master", MinXp = 40000, MaxXp = 79999, SortOrder = 7, Weight = 90 },
+    new LeagueTier { Id = legendId, Code = LeagueCode.Legend, Name = "Legend", MinXp = 80000, MaxXp = null, SortOrder = 8, Weight = 120 }
+);
         }
     }
 }

@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Risen.Business.Exceptions;
 using Risen.Business.Services.Abstracts;
 using Risen.Contracts.Stats;
 using Risen.DataAccess.Data;
@@ -45,39 +46,40 @@ namespace Risen.Business.Services.Concretes
                     s.CurrentStreak,
                     s.LongestStreak,
                     s.LastStreakDateUtc,
-
+                    s.RisenScore,
                     LeagueCode = t.Code.ToString(),
                     LeagueName = t.Name
                 }
             ).FirstOrDefaultAsync(ct);
 
             if (row is null)
-                throw new InvalidOperationException("User stats not found. Ensure UserStats is created on registration.");
+                throw new NotFoundException("User stats not found...");
 
             var (isPremium, plan) = await _entitlement.GetUserEntitlementAsync(userId, ct);
 
             return new MeStatsDto(
-                UserId: row.Id,
-                FirstName: row.FirstName,
-                LastName: row.LastName,
-                FullName: row.FullName,
-                Email: row.Email ?? "",
-                UniversityName: row.UniversityName,
+       UserId: row.Id,
+       FirstName: row.FirstName,
+       LastName: row.LastName,
+       FullName: row.FullName,
+       Email: row.Email ?? "",
+       UniversityName: row.UniversityName,
 
-                TotalXp: row.TotalXp,
-                LeagueCode: row.LeagueCode,
-                LeagueName: row.LeagueName,
+       TotalXp: row.TotalXp,
+       LeagueCode: row.LeagueCode,
+       LeagueName: row.LeagueName,
+       RisenScore: row.RisenScore,  // ← əlavə et
 
-                CurrentStreak: row.CurrentStreak,
-                LongestStreak: row.LongestStreak,
-                LastStreakDateUtc: row.LastStreakDateUtc,
+       CurrentStreak: row.CurrentStreak,
+       LongestStreak: row.LongestStreak,
+       LastStreakDateUtc: row.LastStreakDateUtc,
 
-                CreatedAtUtc: row.CreatedAtUtc,
-                LastOnlineAtUtc: row.LastOnlineAtUtc,
+       CreatedAtUtc: row.CreatedAtUtc,
+       LastOnlineAtUtc: row.LastOnlineAtUtc,
 
-                Plan: plan,
-                IsPremium: isPremium
-            );
+       Plan: plan,
+       IsPremium: isPremium
+   );
 
         }
     }

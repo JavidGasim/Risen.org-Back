@@ -15,10 +15,12 @@ namespace Risen.Web.Controllers
     public class StatsController : ControllerBase
     {
         private readonly IStatsService _stats;
+        private readonly ILogger<StatsController> _logger;
 
-        public StatsController(IStatsService stats)
+        public StatsController(IStatsService stats, ILogger<StatsController> logger)
         {
             _stats = stats;
+            _logger = logger;
         }
 
         [Authorize]
@@ -31,11 +33,15 @@ namespace Risen.Web.Controllers
                 User.FindFirstValue("sub");
 
             if (string.IsNullOrWhiteSpace(idStr))
+            {
+                _logger.LogWarning("User id claim is missing in the token.");
                 return Unauthorized("User id claim is missing.");
+            }
 
             var userId = Guid.Parse(idStr);
 
             var dto = await _stats.GetMeAsync(userId, ct);
+            _logger.LogInformation("Retrieved stats for user {UserId}: {@Stats}", userId, dto);
             return Ok(dto);
         }
 

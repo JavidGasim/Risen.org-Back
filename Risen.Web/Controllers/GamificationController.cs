@@ -13,7 +13,12 @@ namespace Risen.Web.Controllers
     public class GamificationController : ControllerBase
     {
         private readonly IXpService _xp;
-        public GamificationController(IXpService xp) => _xp = xp;
+        private readonly ILogger<GamificationController> _logger;
+        public GamificationController(IXpService xp, ILogger<GamificationController> logger)
+        {
+            _xp = xp;
+            _logger = logger;
+        }
 
         // POST /api/gamification/award-xp
         // Diqqət: bunu açıq saxlamayın. Admin-lə məhdudlaşdırın.
@@ -27,11 +32,18 @@ namespace Risen.Web.Controllers
                 User.FindFirstValue("sub");
 
             if (string.IsNullOrWhiteSpace(idStr))
+            {
+                _logger.LogWarning("User id claim is missing in the token.");
                 return Unauthorized("User id claim is missing.");
+            }
 
-            var userId = Guid.Parse(idStr);
+            //var userId = Guid.Parse(idStr);
+            var targetId = req.TargetUserId ?? Guid.Parse(idStr);
 
-            var res = await _xp.AwardAsync(userId, req, ct);
+            var res = await _xp.AwardAsync(targetId, req, ct);
+
+            _logger.LogInformation("Awarded {FinalXp} XP to user {UserId}. New total XP: {NewTotalXp}, New league: {NewLeague}.",
+                res.FinalXp, targetId, res.NewTotalXp, res.NewLeague);
             return Ok(res);
         }
 

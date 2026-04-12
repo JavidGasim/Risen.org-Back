@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using Risen.Business.Exceptions;
 using Risen.Business.Options;
 using Risen.Business.Services.Abstracts;
 using Risen.Contracts.Gamification;
@@ -36,7 +37,7 @@ namespace Risen.Business.Services.Concretes
         public async Task<SubmitQuestAnswerResponse> SubmitAsync(Guid userId, SubmitQuestAnswerRequest req, CancellationToken ct)
         {
             if (req.SelectedIndex < 0 || req.SelectedIndex > 4)
-                throw new ArgumentOutOfRangeException(nameof(req.SelectedIndex), "SelectedIndex must be 0..4.");
+                throw new BadRequestException("SelectedIndex must be 0..4.");
 
             var now = DateTime.UtcNow;
             var today = now.Date;
@@ -67,11 +68,11 @@ namespace Risen.Business.Services.Concretes
 
             var quest = await questQuery.FirstOrDefaultAsync(ct);
             if (quest is null)
-                throw new KeyNotFoundException("Quest not found or not accessible.");
+                throw new NotFoundException("Quest not found or not accessible.");
 
             // 5 option enforcement
             if (quest.Options is null || quest.Options.Count != 5)
-                throw new InvalidOperationException("Quest must have exactly 5 options.");
+                throw new BadRequestException("Quest must have exactly 5 options.");
 
             if (quest.CorrectOptionIndex < 0 || quest.CorrectOptionIndex > 4)
                 throw new InvalidOperationException("Quest has invalid CorrectOptionIndex.");
