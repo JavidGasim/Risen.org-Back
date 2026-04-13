@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Caching.Memory;
+﻿using FluentValidation;
+using Microsoft.Extensions.Caching.Memory;
 using Risen.Business.Exceptions;
 using System.Text.Json;
 
@@ -32,6 +33,20 @@ namespace Risen.Web.Middlewares
             catch (ForbiddenException ex)
             {
                 await WriteResponse(ctx, 403, ex.Message);
+            }
+            catch (ValidationException ex)
+            {
+                ctx.Response.StatusCode = 400;
+                ctx.Response.ContentType = "application/json";
+
+                var errors = ex.Errors
+                    .GroupBy(e => e.PropertyName)
+                    .ToDictionary(
+                        g => g.Key,
+                        g => g.Select(e => e.ErrorMessage).ToArray()
+                    );
+
+                await ctx.Response.WriteAsJsonAsync(new { errors });
             }
             catch (Exception ex)
             {

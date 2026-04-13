@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
@@ -6,6 +7,7 @@ using Risen.Business.Integrations.Hipolabs;
 using Risen.Business.Services.Abstracts;
 using Risen.Contracts.Universities;
 using Risen.DataAccess.Data;
+using Risen.Entities.Entities;
 
 namespace Risen.Web.Controllers
 {
@@ -15,11 +17,14 @@ namespace Risen.Web.Controllers
     {
         private readonly IUniversitySuggestService _svc;
         private readonly ILogger<UniversitiesController> _logger;
+        private readonly IUniversityCandidateService _candidates;
 
-        public UniversitiesController(IUniversitySuggestService svc, ILogger<UniversitiesController> logger)
+
+        public UniversitiesController(IUniversitySuggestService svc, ILogger<UniversitiesController> logger, IUniversityCandidateService candidates)
         {
             _svc = svc;
             _logger = logger;
+            _candidates = candidates;
         }
 
         // GET /api/universities/suggest?q=aze&limit=10
@@ -45,7 +50,37 @@ namespace Risen.Web.Controllers
             _logger.LogInformation("Received search request with query: {Query}, country: {Country}, limit: {Limit}, offset: {Offset}", q, country, limit, offset);
             return Ok(await _svc.SearchAsync(q, country, limit, offset, ct));
         }
-    }
 
+        [Authorize(Roles = "Admin,University")]
+        [HttpGet("candidates")]
+        public async Task<ActionResult<CandidatesResponse>> GetCandidates(
+        [FromQuery] string? minLeague = null,
+        [FromQuery] decimal? minScore = null,
+        [FromQuery] string? country = null,
+        [FromQuery] int limit = 20,
+        [FromQuery] int offset = 0,
+        CancellationToken ct = default)
+        {
+            LeagueCode? leagueCode = null;
+            if (!string.IsNullOrWhiteSpace(minLeague))
+            {
+                if (!Enum.TryParse<LeagueCode>(minLeague, ignoreCase: true, out var parsed))
+                {
+                    _logger.LogWarning("Invalid league code provided: {MinLeague}", minLeague);
+                    return BadRequest(new { message = $"Etibarsız league: {minLeague}" });
+                }
+
+                leagueCode = parsed;
+            }
+
+            var result = await _candidates.GetCandidatesAsync(
+                leagueCode, minScore, country, limit, offset, ct);
+
+            _logger.LogInformation("Retrieved {Count} candidates with minLeague: {MinLeague}, minScore: {MinScore}, country: {Country}, limit: {Limit}, offset: {Offset}",
+                result.Items.Count, minLeague, minScore, country, limit, offset);
+
+            return Ok(result);
+        }
+    }
 }
 

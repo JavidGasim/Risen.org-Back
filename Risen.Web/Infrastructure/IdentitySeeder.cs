@@ -26,6 +26,19 @@ namespace Risen.Web.Infrastructure
 
             const string adminRole = "Admin";
 
+
+            foreach (var role in new[] { "Admin", "Student", "University" })
+            {
+                if (!await roleManager.RoleExistsAsync(role))
+                {
+                    await roleManager.CreateAsync(new CustomIdentityRole
+                    {
+                        Id = Guid.NewGuid(),
+                        Name = role
+                    });
+                }
+            }
+
             // 1) Admin rolunu yarat (yoxdursa)
             if (!await roleManager.RoleExistsAsync(adminRole))
             {

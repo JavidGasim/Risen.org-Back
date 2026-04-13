@@ -1,3 +1,5 @@
+using FluentValidation;
+using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -6,6 +8,7 @@ using Risen.Business.Integrations.Hipolabs;
 using Risen.Business.Options;
 using Risen.Business.Services.Abstracts;
 using Risen.Business.Services.Concretes;
+using Risen.Business.Validators;
 using Risen.DataAccess.Data;
 using Risen.Entities.Entities;
 using Risen.Web.Infrastructure;
@@ -114,6 +117,7 @@ builder.Services.AddScoped<IUniversitySuggestService, UniversitySuggestService>(
 builder.Services.AddScoped<IXpService, XpService>();
 builder.Services.AddScoped<IQuestService, QuestService>();
 builder.Services.AddScoped<IQuestFeedService, QuestFeedService>();
+builder.Services.AddScoped<IQuestQueryService, QuestQueryService>();
 
 builder.Services.AddScoped<ILeaderboardService, LeaderboardService>();
 builder.Services.AddScoped<IStatsService, StatsService>();
@@ -121,7 +125,13 @@ builder.Services.AddScoped<IStatsService, StatsService>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 
+builder.Services.AddScoped<IUniversityCandidateService, UniversityCandidateService>();
+
+
 builder.Services.AddMemoryCache();
+
+builder.Services.AddFluentValidationAutoValidation();
+builder.Services.AddValidatorsFromAssemblyContaining<RegisterRequestValidator>();
 
 builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
