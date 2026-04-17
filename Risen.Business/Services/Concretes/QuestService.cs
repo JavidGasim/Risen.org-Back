@@ -101,9 +101,12 @@ namespace Risen.Business.Services.Concretes
                             && a.CompletedDateUtc < end, ct);
 
             // difficulty multiplier (server-side)
-            var multiplier = quest.Difficulty == QuestDifficulty.Advanced
-                ? _opt.AdvancedMultiplier
-                : _opt.NormalMultiplier;
+            var multiplier = quest.Difficulty switch
+            {
+                QuestDifficulty.Advanced => _opt.AdvancedMultiplier,
+                QuestDifficulty.Intermediate => _opt.IntermediateMultiplier,
+                _ => _opt.NormalMultiplier
+            };
 
             // XP yalnız: correct + limitReached deyil + bu quest bu gün tamamlanmayıb
             AwardXpResponse? lastXpRes = null;

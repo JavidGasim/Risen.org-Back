@@ -113,7 +113,13 @@ namespace Risen.Business.Services.Concretes
                 throw new InvalidOperationException(string.Join(" | ", addRoleRes.Errors.Select(e => e.Description)));
 
             // ---- Default plan: Free ----
-            var freePlanId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+            var freePlanId = await _db.Plans
+                .Where(p => p.Code == PlanCode.Free)
+                .Select(p => p.Id)
+                .FirstOrDefaultAsync(ct);
+
+            if (freePlanId == Guid.Empty)
+                throw new InvalidOperationException("Plans are not seeded. Free plan not found.");
 
             _db.UserSubscriptions.Add(new UserSubscription
             {

@@ -59,7 +59,7 @@ namespace Risen.Business.Services.Concretes
 
             var quests = await q
                 .OrderBy(x => x.Difficulty)
-                .ThenBy(x => x.Title)
+                .ThenBy(x => x.QuestionText)
                 .ToListAsync(ct);
 
             var items = quests
@@ -119,7 +119,7 @@ namespace Risen.Business.Services.Concretes
             return await q
                 .Select(x => new QuestListItemDto(
                     x.Id,
-                    x.Title,
+                    x.QuestionText,
                     x.Description,
                     x.Difficulty,
                     x.BaseXp,
@@ -163,10 +163,10 @@ namespace Risen.Business.Services.Concretes
             }
 
             return await q
-                .OrderBy(x => x.Title)
+                .OrderBy(x => x.QuestionText)
                 .Select(x => new QuestListItemDto(
                     x.Id,
-                    x.Title,
+                    x.QuestionText,
                     x.Description,
                     x.Difficulty,
                     x.BaseXp,

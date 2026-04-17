@@ -12,6 +12,7 @@ namespace Risen.Business.Options
         public int PremiumDailyQuestLimit { get; set; } = 1000;
 
         public decimal NormalMultiplier { get; set; } = 1.0m;
+        public decimal IntermediateMultiplier { get; set; } = 1.3m;
         public decimal AdvancedMultiplier { get; set; } = 1.5m;
 
         public int StreakBonusXp { get; set; } = 5; // <-- NEW
