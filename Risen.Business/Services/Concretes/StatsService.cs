@@ -22,6 +22,43 @@ namespace Risen.Business.Services.Concretes
             _entitlement = entitlement;
         }
 
+        public async Task<Risen.Entities.Entities.UserStats> EnsureStatsAsync(Guid userId, CancellationToken ct)
+        {
+            var stats = await _db.UserStats.FirstOrDefaultAsync(s => s.UserId == userId, ct);
+            if (stats is not null) return stats;
+
+            var rookieId = await _db.LeagueTiers
+                .Where(t => t.Code == Risen.Entities.Entities.LeagueCode.Rookie)
+                .Select(t => t.Id)
+                .FirstAsync(ct);
+
+            stats = new Risen.Entities.Entities.UserStats
+            {
+                UserId = userId,
+                TotalXp = 0,
+                CurrentLeagueTierId = rookieId,
+                CurrentStreak = 0,
+                LongestStreak = 0,
+                LastStreakDateUtc = null,
+                UpdatedAtUtc = DateTime.UtcNow
+            };
+
+            _db.UserStats.Add(stats);
+            try
+            {
+                await _db.SaveChangesAsync(ct);
+            }
+            catch (DbUpdateException)
+            {
+                // concurrent creation — re-query
+                var existing = await _db.UserStats.FirstOrDefaultAsync(s => s.UserId == userId, ct);
+                if (existing is not null) return existing;
+                throw;
+            }
+
+            return stats;
+        }
+
         public async Task<MeStatsDto> GetMeAsync(Guid userId, CancellationToken ct)
         {
             var row = await (

@@ -12,6 +12,7 @@ namespace Risen.Business.Services.Abstracts
     {
         Task<LeaderboardResponse> GetGlobalAsync(LeagueCode? league, int limit, int offset, CancellationToken ct);
         Task<LeaderboardResponse> GetUniversityAsync(Guid universityId, LeagueCode? league, int limit, int offset, CancellationToken ct);
+        Task<int> GetUserRankAsync(Guid userId, Guid? universityId, CancellationToken ct);
 
     }
 }

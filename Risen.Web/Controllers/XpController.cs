@@ -36,9 +36,33 @@ namespace Risen.Web.Controllers
 
             var userId = Guid.Parse(idStr);
 
+            var targetUserId = req.TargetUserId ?? userId;
+
             var res = await _xp.AwardAsync(userId, req, ct);
-            _logger.LogInformation("Awarded {FinalXp} XP to user {UserId} (new total: {NewTotalXp}, new league: {NewLeague}) for source {SourceType}:{SourceKey}",
-                res.FinalXp, userId, res.NewTotalXp, res.NewLeague, req.SourceType, req.SourceKey);
+            _logger.LogInformation("Awarded {FinalXp} XP to user {TargetUserId} by admin {AdminId} (new total: {NewTotalXp}, new league: {NewLeague}) for source {SourceType}:{SourceKey}",
+                res.FinalXp, targetUserId, userId, res.NewTotalXp, res.NewLeague, req.SourceType, req.SourceKey);
+            return Ok(res);
+        }
+
+        // POST /api/xp/revoke
+        [Authorize(Roles = "Admin")]
+        [HttpPost("revoke")]
+        public async Task<ActionResult<AwardXpResponse>> Revoke([FromBody] Risen.Contracts.Gamification.RevokeXpRequest req, CancellationToken ct = default)
+        {
+            var idStr =
+                User.FindFirstValue(ClaimTypes.NameIdentifier) ??
+                User.FindFirstValue(JwtRegisteredClaimNames.Sub) ??
+                User.FindFirstValue("sub");
+
+            if (string.IsNullOrWhiteSpace(idStr))
+                return Unauthorized("User id claim is missing.");
+
+            var userId = Guid.Parse(idStr);
+
+            var res = await _xp.RevokeAsync(userId, req, ct);
+            _logger.LogInformation("Revoked {FinalXp} XP for target {TargetUserId} by admin {AdminId} (new total: {NewTotalXp}, new league: {NewLeague}) for original {OriginalKey}",
+                res.FinalXp, req.TargetUserId, userId, res.NewTotalXp, res.NewLeague, req.OriginalSourceKey);
+
             return Ok(res);
         }
 

@@ -23,5 +23,9 @@ namespace Risen.Entities.Entities
         public int FinalXp { get; set; }
 
         public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
+
+        // If this transaction was created by an admin (e.g. revoke/adjust), store admin audit info
+        public Guid? AdminId { get; set; }
+        public string? AdminReason { get; set; }
     }
 }

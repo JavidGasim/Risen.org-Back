@@ -23,10 +23,13 @@ namespace Risen.DataAccess.Data
         public DbSet<LeagueTier> LeagueTiers => Set<LeagueTier>();
         public DbSet<UserStats> UserStats => Set<UserStats>();
         public DbSet<XpTransaction> XpTransactions => Set<XpTransaction>();
+        public DbSet<XpTransactionArchive> XpTransactionArchives => Set<XpTransactionArchive>();
         public DbSet<UserLeagueHistory> UserLeagueHistories => Set<UserLeagueHistory>();
         public DbSet<Quest> Quests => Set<Quest>();
         public DbSet<QuestOption> QuestOptions => Set<QuestOption>();
         public DbSet<QuestAttempt> QuestAttempts => Set<QuestAttempt>();
+        public DbSet<Risen.Entities.Entities.AdminAction> AdminActions => Set<Risen.Entities.Entities.AdminAction>();
+        public DbSet<Subject> Subjects => Set<Subject>();
 
 
 
@@ -144,13 +147,46 @@ namespace Risen.DataAccess.Data
             {
                 e.HasKey(x => x.Id);
 
-                e.HasIndex(x => new { x.UserId, x.SourceKey }).IsUnique();
+                // Unique idempotency key per user and source type
+                e.HasIndex(x => new { x.UserId, x.SourceType, x.SourceKey }).IsUnique();
 
                 e.Property(x => x.SourceKey).HasMaxLength(128).IsRequired();
 
                 e.Property(x => x.DifficultyMultiplier).HasPrecision(6, 2);
 
                 e.Property(x => x.CreatedAtUtc).IsRequired();
+                e.Property(x => x.AdminReason).HasMaxLength(512);
+                e.HasIndex(x => x.AdminId);
+            });
+
+            builder.Entity<XpTransactionArchive>(e =>
+            {
+                e.HasKey(x => x.Id);
+                e.Property(x => x.SourceKey).HasMaxLength(128).IsRequired();
+                e.Property(x => x.DifficultyMultiplier).HasPrecision(6, 2);
+                e.Property(x => x.ArchivedAtUtc).IsRequired();
+                e.HasIndex(x => x.UserId);
+                e.HasIndex(x => x.AdminId);
+            });
+
+            builder.Entity<Risen.Entities.Entities.AdminAction>(e =>
+            {
+                e.HasKey(x => x.Id);
+                e.Property(x => x.ActionType).HasMaxLength(64).IsRequired();
+                e.Property(x => x.Details).HasMaxLength(2000);
+                e.Property(x => x.CreatedAtUtc).IsRequired();
+                e.HasIndex(x => x.AdminId);
+                e.HasIndex(x => x.TargetUserId);
+            });
+
+            builder.Entity<Risen.Entities.Entities.Subject>(e =>
+            {
+                e.HasKey(x => x.Code);
+                e.Property(x => x.Code).HasMaxLength(64).IsRequired();
+                e.Property(x => x.Name).HasMaxLength(128).IsRequired();
+                e.Property(x => x.Description).HasMaxLength(2000);
+                e.Property(x => x.CreatedAtUtc).IsRequired();
+                e.HasIndex(x => x.IsActive);
             });
 
             // -------------------------

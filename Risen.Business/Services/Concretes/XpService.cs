@@ -17,15 +17,17 @@ namespace Risen.Business.Services.Concretes
     {
 
         private readonly AppDbContext _db;
+        private readonly IStatsService _statsService;
 
-        public XpService(AppDbContext db)
+        public XpService(AppDbContext db, IStatsService statsService)
         {
             _db = db;
+            _statsService = statsService;
         }
 
-        public async Task<AwardXpResponse> AwardAsync(Guid userId, AwardXpRequest req, CancellationToken ct)
+        public async Task<AwardXpResponse> AwardAsync(Guid actorId, AwardXpRequest req, CancellationToken ct, bool commit = true)
         {
-            if (userId == Guid.Empty) throw new BadRequestException("Invalid user id.");
+            if (actorId == Guid.Empty) throw new BadRequestException("Invalid actor id.");
             if (req is null) throw new InvalidOperationException("Request is null.");
             if (string.IsNullOrWhiteSpace(req.SourceKey)) throw new InvalidOperationException("SourceKey is required.");
             if (req.BaseXp <= 0) throw new BadRequestException("BaseXp must be > 0.");
@@ -34,12 +36,14 @@ namespace Risen.Business.Services.Concretes
             var sourceKey = req.SourceKey.Trim();
 
             // 1) Idempotency check
+            var targetUserId = req.TargetUserId ?? actorId;
+
             var existingTxn = await _db.XpTransactions.AsNoTracking()
-                .FirstOrDefaultAsync(x => x.UserId == userId && x.SourceKey == sourceKey, ct);
+                .FirstOrDefaultAsync(x => x.UserId == targetUserId && x.SourceType == req.SourceType && x.SourceKey == sourceKey, ct);
 
             if (existingTxn is not null)
             {
-                var existingStats = await EnsureStatsAsync(userId, ct);
+                var existingStats = await _statsService.EnsureStatsAsync(targetUserId, ct);
 
                 var tier = await _db.LeagueTiers.AsNoTracking()
                     .Where(t => t.Id == existingStats.CurrentLeagueTierId)
@@ -62,13 +66,13 @@ namespace Risen.Business.Services.Concretes
             if (finalXp < 1) finalXp = 1;
 
             // 3) Stats (yoxdursa yarat)
-            var stats = await EnsureStatsAsync(userId, ct);
+            var stats = await _statsService.EnsureStatsAsync(targetUserId, ct);
 
             // 4) Transaction yaz
             _db.XpTransactions.Add(new XpTransaction
             {
                 Id = Guid.NewGuid(),
-                UserId = userId,
+                UserId = targetUserId,
                 SourceType = req.SourceType,
                 SourceKey = sourceKey,
                 BaseXp = req.BaseXp,
@@ -76,6 +80,29 @@ namespace Risen.Business.Services.Concretes
                 FinalXp = finalXp,
                 CreatedAtUtc = DateTime.UtcNow
             });
+            // If this award is performed by an admin (actor != target) record admin audit info
+            if (actorId != targetUserId)
+            {
+                var added = _db.ChangeTracker.Entries<XpTransaction>()
+                    .FirstOrDefault(e => e.State == Microsoft.EntityFrameworkCore.EntityState.Added && e.Entity.SourceKey == sourceKey);
+                if (added != null)
+                {
+                    added.Entity.AdminId = actorId;
+                    // if admin provided a reason in the request, persist it
+                    added.Entity.AdminReason = req.AdminReason;
+                }
+
+                // also add AdminAction audit record
+                _db.AdminActions.Add(new Risen.Entities.Entities.AdminAction
+                {
+                    Id = Guid.NewGuid(),
+                    AdminId = actorId,
+                    TargetUserId = targetUserId,
+                    ActionType = "AwardXp",
+                    Details = $"SourceType={req.SourceType}; SourceKey={sourceKey}; BaseXp={req.BaseXp}; Mult={req.DifficultyMultiplier}; Reason={req.AdminReason}",
+                    CreatedAtUtc = DateTime.UtcNow
+                });
+            }
 
             // 5) TotalXp artır
             stats.TotalXp += finalXp;
@@ -88,7 +115,7 @@ namespace Risen.Business.Services.Concretes
                 _db.UserLeagueHistories.Add(new UserLeagueHistory
                 {
                     Id = Guid.NewGuid(),
-                    UserId = userId,
+                    UserId = targetUserId,
                     FromTierId = stats.CurrentLeagueTierId,
                     ToTierId = newTier.Id,
                     TotalXpAtChange = stats.TotalXp,
@@ -108,11 +135,17 @@ namespace Risen.Business.Services.Concretes
 
             try
             {
-                await _db.SaveChangesAsync(ct);
+                if (commit)
+                    await _db.SaveChangesAsync(ct);
             }
             catch (DbUpdateException)
             {
-                var stats2 = await EnsureStatsAsync(userId, ct);
+                // likely unique constraint violation (concurrent award). Read the existing transaction and stats and return idempotent result.
+                var existingTxn2 = await _db.XpTransactions.AsNoTracking()
+                    .Where(x => x.UserId == targetUserId && x.SourceType == req.SourceType && x.SourceKey == sourceKey)
+                    .FirstOrDefaultAsync(ct);
+
+                var stats2 = await _statsService.EnsureStatsAsync(targetUserId, ct);
 
                 var tier2 = await _db.LeagueTiers.AsNoTracking()
                     .Where(t => t.Id == stats2.CurrentLeagueTierId)
@@ -120,7 +153,7 @@ namespace Risen.Business.Services.Concretes
                     .FirstAsync(ct);
 
                 return new AwardXpResponse(
-                    FinalXp: finalXp,
+                    FinalXp: existingTxn2 != null ? existingTxn2.FinalXp : finalXp,
                     NewTotalXp: stats2.TotalXp,
                     NewLeague: tier2.ToString()
                 );
@@ -133,32 +166,95 @@ namespace Risen.Business.Services.Concretes
             );
         }
 
-        private async Task<UserStats> EnsureStatsAsync(Guid userId, CancellationToken ct)
+        public async Task<AwardXpResponse> RevokeAsync(Guid userId, Risen.Contracts.Gamification.RevokeXpRequest req, CancellationToken ct)
         {
-            var stats = await _db.UserStats.FirstOrDefaultAsync(s => s.UserId == userId, ct);
-            if (stats is not null) return stats;
+            if (userId == Guid.Empty) throw new BadRequestException("Invalid user id.");
+            if (req is null) throw new InvalidOperationException("Request is null.");
+            if (string.IsNullOrWhiteSpace(req.OriginalSourceKey)) throw new InvalidOperationException("OriginalSourceKey is required.");
 
-            var rookieId = await _db.LeagueTiers
-                .Where(t => t.Code == LeagueCode.Rookie)
-                .Select(t => t.Id)
-                .FirstAsync(ct);
+            if (req.TargetUserId == Guid.Empty) throw new BadRequestException("TargetUserId is required.");
 
-            stats = new UserStats
+            var targetUserId = req.TargetUserId;
+            var origKey = req.OriginalSourceKey.Trim();
+
+            var originalTxn = await _db.XpTransactions.AsNoTracking()
+                .FirstOrDefaultAsync(x => x.UserId == targetUserId && x.SourceKey == origKey, ct);
+
+            if (originalTxn is null)
+                throw new NotFoundException("Original XP transaction not found for target user.");
+
+            // create compensating transaction
+            var negativeXp = -originalTxn.FinalXp;
+
+            var revokeSourceKey = $"Revoke:{originalTxn.Id}";
+
+            // avoid double-revoke
+            var alreadyRevoked = await _db.XpTransactions.AsNoTracking()
+                .AnyAsync(x => x.SourceKey == revokeSourceKey, ct);
+            if (alreadyRevoked)
+                throw new InvalidOperationException("This transaction has already been revoked.");
+
+            _db.XpTransactions.Add(new XpTransaction
             {
-                UserId = userId,
-                TotalXp = 0,
-                CurrentLeagueTierId = rookieId,
-                CurrentStreak = 0,
-                LongestStreak = 0,
-                LastStreakDateUtc = null,
-                UpdatedAtUtc = DateTime.UtcNow
-            };
+                Id = Guid.NewGuid(),
+                UserId = targetUserId,
+                SourceType = Risen.Entities.Entities.XpSourceType.AdminAdjustment,
+                SourceKey = revokeSourceKey,
+                BaseXp = negativeXp,
+                DifficultyMultiplier = 1.0m,
+                FinalXp = negativeXp,
+                CreatedAtUtc = DateTime.UtcNow
+            });
+            // set admin audit info on the transaction being added via change tracker
+            var added = _db.ChangeTracker.Entries<XpTransaction>()
+                .FirstOrDefault(e => e.State == Microsoft.EntityFrameworkCore.EntityState.Added && e.Entity.SourceKey == revokeSourceKey);
+            if (added != null)
+            {
+                added.Entity.AdminId = userId; // admin performing the revoke
+                added.Entity.AdminReason = req.Reason;
+            }
 
-            _db.UserStats.Add(stats);
+            // add admin audit record
+            _db.AdminActions.Add(new Risen.Entities.Entities.AdminAction
+            {
+                Id = Guid.NewGuid(),
+                AdminId = userId,
+                TargetUserId = targetUserId,
+                ActionType = "RevokeXp",
+                Details = $"OriginalTxn={originalTxn.Id}; OrigSourceKey={originalTxn.SourceKey}; OrigFinalXp={originalTxn.FinalXp}; Reason={req.Reason}",
+                CreatedAtUtc = DateTime.UtcNow
+            });
+
+            var stats = await _statsService.EnsureStatsAsync(targetUserId, ct);
+
+            stats.TotalXp += negativeXp;
+            stats.UpdatedAtUtc = DateTime.UtcNow;
+
+            var newTier = await FindTierByXpAsync(stats.TotalXp, ct);
+            if (stats.CurrentLeagueTierId != newTier.Id)
+            {
+                _db.UserLeagueHistories.Add(new UserLeagueHistory
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = targetUserId,
+                    FromTierId = stats.CurrentLeagueTierId,
+                    ToTierId = newTier.Id,
+                    TotalXpAtChange = stats.TotalXp,
+                    ChangedAtUtc = DateTime.UtcNow
+                });
+
+                stats.CurrentLeagueTierId = newTier.Id;
+                stats.UpdatedAtUtc = DateTime.UtcNow;
+            }
+
+            stats.RisenScore = RisenScoreCalculator.Calculate(newTier.Weight, stats.TotalXp, stats.CurrentStreak);
+
             await _db.SaveChangesAsync(ct);
 
-            return stats;
+            return new AwardXpResponse(FinalXp: negativeXp, NewTotalXp: stats.TotalXp, NewLeague: newTier.Code.ToString());
         }
+
+
 
         private async Task<LeagueTier> FindTierByXpAsync(long totalXp, CancellationToken ct)
         {

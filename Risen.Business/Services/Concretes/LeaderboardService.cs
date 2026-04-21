@@ -111,5 +111,37 @@ namespace Risen.Business.Services.Concretes
             public Guid? UniversityId { get; set; }
             public string? UniversityName { get; set; }
         }
+
+        public async Task<int> GetUserRankAsync(Guid userId, Guid? universityId, CancellationToken ct)
+        {
+            // get user's total xp
+            var userRow = await (
+                from s in _db.UserStats.AsNoTracking()
+                join u in _db.Users.AsNoTracking() on s.UserId equals u.Id
+                where s.UserId == userId
+                select new { s.TotalXp, u.UniversityId }
+            ).FirstOrDefaultAsync(ct);
+
+            if (userRow is null) return -1;
+
+            var targetXp = userRow.TotalXp;
+
+            var q = from s in _db.UserStats.AsNoTracking()
+                    where s.TotalXp > targetXp
+                    select s.UserId;
+
+            if (universityId.HasValue)
+            {
+                q = from s in _db.UserStats.AsNoTracking()
+                    join u in _db.Users.AsNoTracking() on s.UserId equals u.Id
+                    where s.TotalXp > targetXp && u.UniversityId == universityId.Value
+                    select s.UserId;
+            }
+
+            var higherCount = await q.CountAsync(ct);
+
+            // rank is count of users with more XP + 1
+            return higherCount + 1;
+        }
     }
 }

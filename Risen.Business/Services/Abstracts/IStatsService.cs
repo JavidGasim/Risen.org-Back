@@ -10,5 +10,6 @@ namespace Risen.Business.Services.Abstracts
     public interface IStatsService
     {
         Task<MeStatsDto> GetMeAsync(Guid userId, CancellationToken ct);
+        Task<Risen.Entities.Entities.UserStats> EnsureStatsAsync(Guid userId, CancellationToken ct);
     }
 }

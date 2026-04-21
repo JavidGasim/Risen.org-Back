@@ -21,17 +21,20 @@ namespace Risen.Business.Services.Concretes
         private readonly IQuestEntitlementService _ent;
         private readonly IXpService _xp;
         private readonly QuestPolicyOptions _opt;
+        private readonly IStatsService _statsService;
 
         public QuestService(
             AppDbContext db,
             IQuestEntitlementService ent,
             IXpService xp,
-            IOptions<QuestPolicyOptions> opt)
+            IOptions<QuestPolicyOptions> opt,
+            IStatsService statsService)
         {
             _db = db;
             _ent = ent;
             _xp = xp;
             _opt = opt.Value;
+            _statsService = statsService;
         }
 
         public async Task<SubmitQuestAnswerResponse> SubmitAsync(Guid userId, SubmitQuestAnswerRequest req, CancellationToken ct)
@@ -113,7 +116,7 @@ namespace Risen.Business.Services.Concretes
             var gainedThisSubmit = 0;
 
             // Stats (streak üçün lazımdır)
-            var stats = await EnsureStatsAsync(userId, ct);
+            var stats = await _statsService.EnsureStatsAsync(userId, ct);
 
             if (!limitReached && isCorrect && !alreadyCompletedThisQuestToday)
             {
@@ -159,6 +162,17 @@ namespace Risen.Business.Services.Concretes
 
                     stats.LastStreakDateUtc = today;
                     stats.UpdatedAtUtc = DateTime.UtcNow;
+                    // Recalculate RisenScore after streak update
+                    var tierWeight = await _db.LeagueTiers.AsNoTracking()
+                        .Where(t => t.Id == stats.CurrentLeagueTierId)
+                        .Select(t => t.Weight)
+                        .FirstAsync(ct);
+
+                    stats.RisenScore = Risen.Business.Utils.RisenScoreCalculator.Calculate(
+                        tierWeight,
+                        stats.TotalXp,
+                        stats.CurrentStreak
+                    );
                 }
             }
 
@@ -217,32 +231,7 @@ namespace Risen.Business.Services.Concretes
             );
         }
 
-        private async Task<UserStats> EnsureStatsAsync(Guid userId, CancellationToken ct)
-        {
-            var stats = await _db.UserStats.FirstOrDefaultAsync(s => s.UserId == userId, ct);
-            if (stats is not null) return stats;
 
-            var rookieId = await _db.LeagueTiers
-                .Where(t => t.Code == LeagueCode.Rookie)
-                .Select(t => t.Id)
-                .FirstAsync(ct);
-
-            stats = new UserStats
-            {
-                UserId = userId,
-                TotalXp = 0,
-                CurrentLeagueTierId = rookieId,
-                CurrentStreak = 0,
-                LongestStreak = 0,
-                LastStreakDateUtc = null,
-                UpdatedAtUtc = DateTime.UtcNow
-            };
-
-            _db.UserStats.Add(stats);
-            await _db.SaveChangesAsync(ct);
-
-            return stats;
-        }
 
     }
 }

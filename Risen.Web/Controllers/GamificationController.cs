@@ -37,13 +37,13 @@ namespace Risen.Web.Controllers
                 return Unauthorized("User id claim is missing.");
             }
 
-            //var userId = Guid.Parse(idStr);
-            var targetId = req.TargetUserId ?? Guid.Parse(idStr);
+            var adminId = Guid.Parse(idStr);
+            var targetId = req.TargetUserId ?? adminId;
 
-            var res = await _xp.AwardAsync(targetId, req, ct);
+            var res = await _xp.AwardAsync(adminId, req, ct);
 
-            _logger.LogInformation("Awarded {FinalXp} XP to user {UserId}. New total XP: {NewTotalXp}, New league: {NewLeague}.",
-                res.FinalXp, targetId, res.NewTotalXp, res.NewLeague);
+            _logger.LogInformation("Admin {AdminId} awarded {FinalXp} XP to user {TargetId}. New total XP: {NewTotalXp}, New league: {NewLeague}.",
+                adminId, res.FinalXp, targetId, res.NewTotalXp, res.NewLeague);
             return Ok(res);
         }
 

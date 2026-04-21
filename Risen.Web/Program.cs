@@ -91,6 +91,11 @@ builder.Services.AddAuthorization(options =>
 builder.Services.Configure<QuestPolicyOptions>(
     builder.Configuration.GetSection("QuestPolicy"));
 
+builder.Services.Configure<RetentionOptions>(
+    builder.Configuration.GetSection("Retention"));
+
+builder.Services.AddHostedService<Risen.Web.Services.RetentionService>();
+
 
 var allowedOrigins = builder.Configuration
     .GetSection("AllowedOrigins")
@@ -129,6 +134,9 @@ builder.Services.AddScoped<IUniversityCandidateService, UniversityCandidateServi
 
 
 builder.Services.AddMemoryCache();
+
+// Admin audit service
+builder.Services.AddScoped<Risen.Business.Services.Abstracts.IAdminAuditService, Risen.Business.Services.Concretes.AdminAuditService>();
 
 builder.Services.AddFluentValidationAutoValidation();
 builder.Services.AddValidatorsFromAssemblyContaining<RegisterRequestValidator>();

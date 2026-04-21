@@ -26,6 +26,36 @@ namespace Risen.Web.Controllers
             _logger = logger;
         }
 
+        // GET /api/leaderboards/my-rank
+        [Authorize]
+        [HttpGet("my-rank")]
+        public async Task<ActionResult<int>> MyRank([FromQuery] bool universityOnly = false, CancellationToken ct = default)
+        {
+            var idStr =
+    User.FindFirstValue(ClaimTypes.NameIdentifier) ??
+    User.FindFirstValue(JwtRegisteredClaimNames.Sub) ??
+    User.FindFirstValue("sub");
+
+            if (string.IsNullOrWhiteSpace(idStr))
+                return Unauthorized("User id claim is missing.");
+
+            var userId = Guid.Parse(idStr);
+
+            Guid? uniId = null;
+            if (universityOnly)
+            {
+                uniId = await _db.Users.AsNoTracking()
+                    .Where(u => u.Id == userId)
+                    .Select(u => u.UniversityId)
+                    .FirstOrDefaultAsync(ct);
+                if (uniId is null)
+                    return Ok(-1);
+            }
+
+            var rank = await _svc.GetUserRankAsync(userId, uniId, ct);
+            return Ok(rank);
+        }
+
         // GET /api/leaderboards/global?league=Gold&limit=50&offset=0
         [HttpGet("global")]
         public async Task<ActionResult<LeaderboardResponse>> Global(
@@ -81,7 +111,11 @@ namespace Risen.Web.Controllers
             if (uniId is null)
             {
                 _logger.LogWarning("User {UserId} does not have an associated university.", userId);
-                return Ok(new LeaderboardResponse(limit, offset, Array.Empty<LeaderboardEntryDto>()));
+                return Ok(new LeaderboardResponse(
+                    Limit: limit,
+                    Offset: offset,
+                    Items: Array.Empty<LeaderboardEntryDto>(),
+                    Total: 0));
             }
 
             var leagueCode = ParseLeague(league);

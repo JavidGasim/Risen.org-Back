@@ -10,7 +10,9 @@ namespace Risen.Entities.Entities
     {
         public Guid Id { get; set; }
 
-        // === Köhnə field-lər (servislər buna baxır) ===
+        // === Title: EF Core migration uyğunluğu üçün saxlanır. ===
+        // Yeni kodda istifadə etməyin — QuestionText istifadə edin.
+        [Obsolete("Use QuestionText. Title will be removed in a future migration.")]
         public string Title { get; set; } = default!;
         public string? Description { get; set; }
         public QuestDifficulty Difficulty { get; set; } = QuestDifficulty.Beginner;
@@ -19,10 +21,8 @@ namespace Risen.Entities.Entities
         public bool IsPremiumOnly { get; set; } = false;
         public int BaseXp { get; set; } = 10;
 
-        // === Yeni test formatı field-lər (MCQ) ===
-        // Əgər sualın özü Title-da saxlanacaqsa, QuestionText-ə ehtiyac olmaya bilər.
-        // Amma geriyə uyğunluq və rahatlıq üçün saxlaya bilərik.
-        public string QuestionText { get; set; } = default!; // opsional
+        // === Kanonik sual mətni — bütün servislərdə bu istifadə olunur ===
+        public string QuestionText { get; set; } = default!;
 
         // 0..4 (A..E), yalnız 1 düzgün cavab
         public int CorrectOptionIndex { get; set; }

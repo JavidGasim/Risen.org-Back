@@ -17,5 +17,6 @@ namespace Risen.Entities.Entities
         public string? StateProvince { get; set; }
         public string? PrimaryDomain { get; set; }
         public string? PrimaryWebPage { get; set; }
+        public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
     }
 }
