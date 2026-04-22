@@ -41,6 +41,118 @@ namespace Risen.Business.Services.Concretes
             _universityService = universityService;
         }
 
+        public async Task<string?> SendForgotPasswordAsync(ForgotPasswordRequest req, CancellationToken ct)
+        {
+            var email = req.Email?.Trim().ToLowerInvariant();
+            if (string.IsNullOrWhiteSpace(email))
+                throw new InvalidOperationException("Email is required.");
+
+            var user = await _userManager.FindByEmailAsync(email);
+            if (user is null)
+                return null; // do not reveal
+
+            var token = await _userManager.GeneratePasswordResetTokenAsync(user);
+
+            // In real app send email with token link. For now persist token to DB as a RefreshToken-like entry
+            // We'll store in RefreshTokens table using TokenHash to avoid creating dedicated table.
+            var hash = _tokenService.HashToken(token);
+            _db.RefreshTokens.Add(new RefreshToken
+            {
+                Id = Guid.NewGuid(),
+                UserId = user.Id,
+                TokenHash = hash,
+                ExpiresAtUtc = DateTime.UtcNow.AddHours(1),
+                CreatedAtUtc = DateTime.UtcNow
+            });
+
+            await _db.SaveChangesAsync(ct);
+
+            // Return the raw token for development/testing. Do NOT expose this in production.
+            return token;
+        }
+
+        public async Task<Risen.Contracts.Auth.AuthResponse?> ResetPasswordAsync(ResetPasswordRequest req, CancellationToken ct)
+        {
+            var email = req.Email?.Trim().ToLowerInvariant();
+            if (string.IsNullOrWhiteSpace(email))
+                throw new BadRequestException("Email is required.");
+
+            var user = await _userManager.FindByEmailAsync(email);
+            if (user is null)
+                throw new BadRequestException("User not found.");
+
+            // Try matching the token in several common encodings. Use RevokedAtUtc == null for EF translation.
+            string? tokenToUse = req.Token;
+            RefreshToken? stored = null;
+
+            if (!string.IsNullOrEmpty(tokenToUse))
+            {
+                var incomingHash = _tokenService.HashToken(tokenToUse);
+                stored = await _db.RefreshTokens.FirstOrDefaultAsync(x => x.TokenHash == incomingHash && x.UserId == user.Id && x.RevokedAtUtc == null && x.ExpiresAtUtc > DateTime.UtcNow, ct);
+            }
+
+            if (stored is null)
+            {
+                // try URL-unescaped token
+                try
+                {
+                    var decoded = Uri.UnescapeDataString(req.Token ?? string.Empty);
+                    if (!string.IsNullOrEmpty(decoded) && decoded != req.Token)
+                    {
+                        var h2 = _tokenService.HashToken(decoded);
+                        stored = await _db.RefreshTokens.FirstOrDefaultAsync(x => x.TokenHash == h2 && x.UserId == user.Id && x.RevokedAtUtc == null && x.ExpiresAtUtc > DateTime.UtcNow, ct);
+                        if (stored != null) tokenToUse = decoded;
+                    }
+                }
+                catch { /* ignore decode errors */ }
+            }
+
+            if (stored is null)
+            {
+                // try common client-side space->plus substitution
+                var plused = req.Token?.Replace(' ', '+');
+                if (!string.IsNullOrEmpty(plused) && plused != req.Token)
+                {
+                    var h3 = _tokenService.HashToken(plused);
+                    stored = await _db.RefreshTokens.FirstOrDefaultAsync(x => x.TokenHash == h3 && x.UserId == user.Id && x.RevokedAtUtc == null && x.ExpiresAtUtc > DateTime.UtcNow, ct);
+                    if (stored != null) tokenToUse = plused;
+                }
+            }
+
+            if (stored is null)
+                throw new BadRequestException("Reset token is invalid or expired.");
+
+            var resetRes = await _userManager.ResetPasswordAsync(user, tokenToUse!, req.NewPassword);
+            if (!resetRes.Succeeded)
+                throw new BadRequestException(string.Join(" | ", resetRes.Errors.Select(e => e.Description)));
+
+            // revoke token
+            stored.RevokedAtUtc = DateTime.UtcNow;
+            await _db.SaveChangesAsync(ct);
+
+            // Automatically log in the user and return tokens
+            var roles = await _userManager.GetRolesAsync(user);
+            var (isPremium, plan) = await _entitlementService.GetUserEntitlementAsync(user.Id, ct);
+
+            var access = _tokenService.CreateAccessToken(user, roles, isPremium, plan);
+            var rt = _tokenService.CreateRefreshToken(30);
+
+            _db.RefreshTokens.Add(new RefreshToken
+            {
+                Id = Guid.NewGuid(),
+                UserId = user.Id,
+                TokenHash = rt.Hash,
+                ExpiresAtUtc = rt.ExpiresAtUtc,
+                CreatedAtUtc = DateTime.UtcNow
+            });
+
+            user.LastOnlineAtUtc = DateTime.UtcNow;
+            await _userManager.UpdateAsync(user);
+            await _db.SaveChangesAsync(ct);
+
+            return new Risen.Contracts.Auth.AuthResponse(access, rt.Plain, plan, isPremium);
+        }
+
         public async Task RegisterAsync(RegisterRequest req, CancellationToken ct)
         {
             var email = req.Email.Trim().ToLowerInvariant();

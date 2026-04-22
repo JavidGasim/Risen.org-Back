@@ -42,6 +42,31 @@ namespace Risen.Web.Controllers
             return Ok(res);
         }
 
+        [HttpPost("forgot-password")]
+        public async Task<IActionResult> ForgotPassword([FromBody] Risen.Contracts.Auth.ForgotPasswordRequest req, CancellationToken ct)
+        {
+            var token = await _auth.SendForgotPasswordAsync(req, ct);
+            // In Development we may return token to the caller for testing.
+            if (HttpContext.RequestServices.GetService(typeof(IHostEnvironment)) is IHostEnvironment env && env.IsDevelopment())
+            {
+                return Ok(new { message = "If an account exists, a reset token was generated.", token });
+            }
+
+            return Ok(new { message = "If an account exists, a reset token was generated." });
+        }
+
+        [HttpPost("reset-password")]
+        public async Task<IActionResult> ResetPassword([FromBody] Risen.Contracts.Auth.ResetPasswordRequest req, CancellationToken ct)
+        {
+            var authRes = await _auth.ResetPasswordAsync(req, ct);
+            if (HttpContext.RequestServices.GetService(typeof(IHostEnvironment)) is IHostEnvironment env && env.IsDevelopment())
+            {
+                return Ok(new { message = "Password has been reset.", auth = authRes });
+            }
+
+            return Ok(new { message = "Password has been reset." });
+        }
+
         [HttpPost("logout")]
         public async Task<IActionResult> Logout([FromBody] LogoutRequest req, CancellationToken ct)
         {
