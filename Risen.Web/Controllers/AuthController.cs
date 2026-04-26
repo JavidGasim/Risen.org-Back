@@ -12,20 +12,42 @@ namespace Risen.Web.Controllers
     {
         private readonly IAuthService _auth;
         private readonly ILogger<AuthController> _logger;
+
         public AuthController(IAuthService auth, ILogger<AuthController> logger)
         {
             _auth = auth;
             _logger = logger;
         }
 
+        // ✅ STEP 1 — OTP GÖNDƏR
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterRequest req, CancellationToken ct)
         {
             await _auth.RegisterAsync(req, ct);
-            _logger.LogInformation("New user registered: {Email}", req.Email);
-            return Ok(new { message = "Registration completed" });
+
+            _logger.LogInformation("OTP sent to: {Email}", req.Email);
+
+            return Ok(new
+            {
+                message = "Verification code sent to your email"
+            });
         }
 
+        // ✅ STEP 2 — OTP YOXLA VƏ USER YARAT
+        [HttpPost("verify-register")]
+        public async Task<IActionResult> VerifyRegister([FromBody] VerifyRegisterRequest req, CancellationToken ct)
+        {
+            await _auth.VerifyRegisterAsync(req, ct);
+
+            _logger.LogInformation("User verified and created: {Email}", req.Email);
+
+            return Ok(new
+            {
+                message = "Registration completed successfully"
+            });
+        }
+
+        // 🔐 LOGIN
         [HttpPost("login")]
         public async Task<ActionResult<AuthResponse>> Login([FromBody] LoginRequest req, CancellationToken ct)
         {
@@ -34,44 +56,71 @@ namespace Risen.Web.Controllers
             return Ok(res);
         }
 
+        // 🔄 REFRESH TOKEN
         [HttpPost("refresh")]
         public async Task<ActionResult<AuthResponse>> Refresh([FromBody] RefreshRequest req, CancellationToken ct)
         {
             var res = await _auth.RefreshAsync(req, ct);
-            _logger.LogInformation("Token refreshed for user: {UserId}", User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub"));
+
+            _logger.LogInformation("Token refreshed for user: {UserId}",
+                User.FindFirstValue(ClaimTypes.NameIdentifier) ??
+                User.FindFirstValue("sub"));
+
             return Ok(res);
         }
 
+        // 📧 FORGOT PASSWORD
         [HttpPost("forgot-password")]
-        public async Task<IActionResult> ForgotPassword([FromBody] Risen.Contracts.Auth.ForgotPasswordRequest req, CancellationToken ct)
+        public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest req, CancellationToken ct)
         {
             var token = await _auth.SendForgotPasswordAsync(req, ct);
-            // In Development we may return token to the caller for testing.
+
             if (HttpContext.RequestServices.GetService(typeof(IHostEnvironment)) is IHostEnvironment env && env.IsDevelopment())
             {
-                return Ok(new { message = "If an account exists, a reset token was generated.", token });
+                return Ok(new
+                {
+                    message = "If an account exists, a reset token was generated.",
+                    token
+                });
             }
 
-            return Ok(new { message = "If an account exists, a reset token was generated." });
+            return Ok(new
+            {
+                message = "If an account exists, a reset token was generated."
+            });
         }
 
+        // 🔑 RESET PASSWORD
         [HttpPost("reset-password")]
-        public async Task<IActionResult> ResetPassword([FromBody] Risen.Contracts.Auth.ResetPasswordRequest req, CancellationToken ct)
+        public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest req, CancellationToken ct)
         {
             var authRes = await _auth.ResetPasswordAsync(req, ct);
+
             if (HttpContext.RequestServices.GetService(typeof(IHostEnvironment)) is IHostEnvironment env && env.IsDevelopment())
             {
-                return Ok(new { message = "Password has been reset.", auth = authRes });
+                return Ok(new
+                {
+                    message = "Password has been reset.",
+                    auth = authRes
+                });
             }
 
-            return Ok(new { message = "Password has been reset." });
+            return Ok(new
+            {
+                message = "Password has been reset."
+            });
         }
 
+        // 🚪 LOGOUT
         [HttpPost("logout")]
         public async Task<IActionResult> Logout([FromBody] LogoutRequest req, CancellationToken ct)
         {
             await _auth.LogoutAsync(req, ct);
-            _logger.LogInformation("User logged out: {UserId}", User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub"));
+
+            _logger.LogInformation("User logged out: {UserId}",
+                User.FindFirstValue(ClaimTypes.NameIdentifier) ??
+                User.FindFirstValue("sub"));
+
             return Ok(new { message = "Logged out" });
         }
     }

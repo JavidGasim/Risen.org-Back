@@ -132,13 +132,15 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 
 builder.Services.AddScoped<IUniversityCandidateService, UniversityCandidateService>();
 
+builder.Services.Configure<EmailSettings>(
+    builder.Configuration.GetSection("EmailSettings"));
+
+builder.Services.AddScoped<IEmailService, EmailService>();
 
 builder.Services.AddMemoryCache();
 
 // Admin audit service
 builder.Services.AddScoped<Risen.Business.Services.Abstracts.IAdminAuditService, Risen.Business.Services.Concretes.AdminAuditService>();
-
-// Email (removed)
 
 builder.Services.AddFluentValidationAutoValidation();
 builder.Services.AddValidatorsFromAssemblyContaining<RegisterRequestValidator>();

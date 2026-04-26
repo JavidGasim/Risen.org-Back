@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using Risen.Business.Exceptions;
 using Risen.Business.Services.Abstracts;
+using Risen.Business.Utils;
 using Risen.Contracts.Auth;
 using Risen.DataAccess.Data;
 using Risen.Entities.Entities;
@@ -22,6 +23,7 @@ namespace Risen.Business.Services.Concretes
         private readonly ITokenService _tokenService;
         private readonly IEntitlementService _entitlementService;
         private readonly IUniversityService _universityService;
+        private readonly IEmailService _emailService;
 
         public AuthService(
             UserManager<CustomIdentityUser> userManager,
@@ -30,12 +32,13 @@ namespace Risen.Business.Services.Concretes
             AppDbContext db,
             ITokenService tokenService,
             IEntitlementService entitlementService,
-            IUniversityService universityService)
+            IUniversityService universityService, IEmailService emailService)
         {
             _userManager = userManager;
             _signInManager = signInManager;
             _roleManager = roleManager;
             _db = db;
+            _emailService = emailService;
             _tokenService = tokenService;
             _entitlementService = entitlementService;
             _universityService = universityService;
@@ -156,93 +159,55 @@ namespace Risen.Business.Services.Concretes
         public async Task RegisterAsync(RegisterRequest req, CancellationToken ct)
         {
             var email = req.Email.Trim().ToLowerInvariant();
-            var first = req.FirstName.Trim();
-            var last = req.LastName.Trim();
 
             var exists = await _userManager.FindByEmailAsync(email);
             if (exists is not null)
                 throw new BadRequestException("This email already exists.");
 
-            var uniId = await _universityService.UpsertAndGetIdAsync(req.UniversityName, ct);
+            var code = new Random().Next(100000, 999999).ToString();
 
-            var user = new CustomIdentityUser
+            var body = $@"
+<div style='font-family: Arial, sans-serif; background-color:#f4f6f8; padding:40px;'>
+    <div style='max-width:500px; margin:0 auto; background:#ffffff; padding:30px; border-radius:12px; 
+                box-shadow: 0 10px 25px rgba(0,0,0,0.1); text-align:center;'>
+
+        <h2 style='color:#333;'>Email Verification</h2>
+
+        <p style='font-size:16px; color:#555;'>
+            Your verification code is:
+        </p>
+
+        <div style='margin:20px 0;'>
+            <span style='display:inline-block; font-size:28px; letter-spacing:6px; 
+                         font-weight:bold; color:#ffffff; background:#4f46e5; 
+                         padding:12px 24px; border-radius:8px;'>
+                {code}
+            </span>
+        </div>
+
+        <p style='font-size:12px; color:#888;'>
+            This code will expire in 10 minutes. Do not share it with anyone.
+        </p>
+
+    </div>
+</div>
+";
+
+            OtpStore.Data[email] = (req, code, DateTime.UtcNow.AddMinutes(5));
+
+            try
             {
-                Id = Guid.NewGuid(),
-                Email = email,
-                UserName = email,
-
-                FirstName = first,
-                LastName = last,
-                FullName = $"{first} {last}".Trim(),
-
-                UniversityId = uniId,
-                EmailConfirmed = true
-            };
-
-            var result = await _userManager.CreateAsync(user, req.Password);
-            if (!result.Succeeded)
-                throw new InvalidOperationException(string.Join(" | ", result.Errors.Select(e => e.Description)));
-
-            // ---- UserStats: CreateAsync successful olduqdan sonra ----
-            var rookieTierId = await _db.LeagueTiers.AsNoTracking()
-                .Where(t => t.Code == LeagueCode.Rookie)
-                .Select(t => t.Id)
-                .FirstOrDefaultAsync(ct);
-
-            if (rookieTierId == Guid.Empty)
-                throw new InvalidOperationException("League tiers are not seeded. Rookie tier not found.");
-
-            _db.UserStats.Add(new UserStats
-            {
-                UserId = user.Id,
-                TotalXp = 0,
-                CurrentLeagueTierId = rookieTierId,
-                CurrentStreak = 0,
-                LongestStreak = 0,
-                LastStreakDateUtc = null,
-                UpdatedAtUtc = DateTime.UtcNow
-            });
-
-            // ---- Default role ----
-            const string defaultRole = "Student";
-
-            if (!await _roleManager.RoleExistsAsync(defaultRole))
-            {
-                var role = new CustomIdentityRole
-                {
-                    Id = Guid.NewGuid(),
-                    Name = defaultRole,
-                    NormalizedName = defaultRole.ToUpperInvariant()
-                };
-
-                var roleRes = await _roleManager.CreateAsync(role);
-                if (!roleRes.Succeeded)
-                    throw new InvalidOperationException(string.Join(" | ", roleRes.Errors.Select(e => e.Description)));
+                await _emailService.SendAsync(
+                    email,
+                    "Verification Code",
+                    body
+                );
             }
-
-            var addRoleRes = await _userManager.AddToRoleAsync(user, defaultRole);
-            if (!addRoleRes.Succeeded)
-                throw new InvalidOperationException(string.Join(" | ", addRoleRes.Errors.Select(e => e.Description)));
-
-            // ---- Default plan: Free ----
-            var freePlanId = await _db.Plans
-                .Where(p => p.Code == PlanCode.Free)
-                .Select(p => p.Id)
-                .FirstOrDefaultAsync(ct);
-
-            if (freePlanId == Guid.Empty)
-                throw new InvalidOperationException("Plans are not seeded. Free plan not found.");
-
-            _db.UserSubscriptions.Add(new UserSubscription
+            catch (Exception ex)
             {
-                Id = Guid.NewGuid(),
-                UserId = user.Id,
-                PlanId = freePlanId,
-                IsActive = true,
-                StartsAtUtc = DateTime.UtcNow
-            });
-
-            await _db.SaveChangesAsync(ct);
+                // 🔥 BURANI LOG ET
+                throw new Exception("EMAIL SERVICE FAILED: " + ex.Message);
+            }
         }
 
         public async Task<AuthResponse> LoginAsync(LoginRequest req, CancellationToken ct)
@@ -318,6 +283,44 @@ namespace Risen.Business.Services.Concretes
             return new AuthResponse(access, rt.Plain, plan, isPremium);
         }
 
+        public async Task VerifyRegisterAsync(VerifyRegisterRequest req, CancellationToken ct)
+        {
+            var email = req.Email.Trim().ToLowerInvariant();
+
+            if (!OtpStore.Data.TryGetValue(email, out var data))
+                throw new BadRequestException("Code not found");
+
+            if (data.Expire < DateTime.UtcNow)
+                throw new BadRequestException("Code expired");
+
+            if (data.Code != req.Code)
+                throw new BadRequestException("Invalid code");
+
+            var r = data.Req;
+
+            var uniId = await _universityService.UpsertAndGetIdAsync(r.UniversityName, ct);
+
+            var user = new CustomIdentityUser
+            {
+                Id = Guid.NewGuid(),
+                Email = email,
+                UserName = email,
+                FirstName = r.FirstName,
+                LastName = r.LastName,
+                FullName = $"{r.FirstName} {r.LastName}".Trim(),
+                UniversityId = uniId,
+                EmailConfirmed = true
+            };
+
+            var result = await _userManager.CreateAsync(user, r.Password);
+            if (!result.Succeeded)
+                throw new InvalidOperationException(string.Join(" | ", result.Errors.Select(e => e.Description)));
+
+            await AddDefaultData(user, ct);
+
+            OtpStore.Data.Remove(email);
+        }
+
         public async Task LogoutAsync(LogoutRequest req, CancellationToken ct)
         {
             var hash = _tokenService.HashToken(req.RefreshToken);
@@ -325,6 +328,52 @@ namespace Risen.Business.Services.Concretes
             if (stored is null) return;
 
             stored.RevokedAtUtc = DateTime.UtcNow;
+            await _db.SaveChangesAsync(ct);
+        }
+
+        private async Task AddDefaultData(CustomIdentityUser user, CancellationToken ct)
+        {
+            var rookieTierId = await _db.LeagueTiers
+                .Where(t => t.Code == LeagueCode.Rookie)
+                .Select(t => t.Id)
+                .FirstOrDefaultAsync(ct);
+
+            _db.UserStats.Add(new UserStats
+            {
+                UserId = user.Id,
+                TotalXp = 0,
+                CurrentLeagueTierId = rookieTierId,
+                UpdatedAtUtc = DateTime.UtcNow
+            });
+
+            const string roleName = "Student";
+
+            if (!await _roleManager.RoleExistsAsync(roleName))
+            {
+                await _roleManager.CreateAsync(new CustomIdentityRole
+                {
+                    Id = Guid.NewGuid(),
+                    Name = roleName,
+                    NormalizedName = roleName.ToUpper()
+                });
+            }
+
+            await _userManager.AddToRoleAsync(user, roleName);
+
+            var planId = await _db.Plans
+                .Where(p => p.Code == PlanCode.Free)
+                .Select(p => p.Id)
+                .FirstOrDefaultAsync(ct);
+
+            _db.UserSubscriptions.Add(new UserSubscription
+            {
+                Id = Guid.NewGuid(),
+                UserId = user.Id,
+                PlanId = planId,
+                IsActive = true,
+                StartsAtUtc = DateTime.UtcNow
+            });
+
             await _db.SaveChangesAsync(ct);
         }
     }

@@ -15,5 +15,6 @@ namespace Risen.Business.Services.Abstracts
         Task LogoutAsync(LogoutRequest req, CancellationToken ct);
         Task<string?> SendForgotPasswordAsync(ForgotPasswordRequest req, CancellationToken ct);
         Task<Risen.Contracts.Auth.AuthResponse?> ResetPasswordAsync(ResetPasswordRequest req, CancellationToken ct);
+        Task VerifyRegisterAsync(VerifyRegisterRequest req, CancellationToken ct);
     }
 }
