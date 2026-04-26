@@ -138,6 +138,8 @@ builder.Services.AddMemoryCache();
 // Admin audit service
 builder.Services.AddScoped<Risen.Business.Services.Abstracts.IAdminAuditService, Risen.Business.Services.Concretes.AdminAuditService>();
 
+// Email (removed)
+
 builder.Services.AddFluentValidationAutoValidation();
 builder.Services.AddValidatorsFromAssemblyContaining<RegisterRequestValidator>();
 
