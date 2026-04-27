@@ -43,6 +43,7 @@ namespace Risen.Web.Controllers
             var quest = new Quest
             {
                 Id = Guid.NewGuid(),
+                Title = req.QuestionText, // for EF Core migration compatibility
                 QuestionText = req.QuestionText,
                 Description = req.Description,
                 Difficulty = req.Difficulty,

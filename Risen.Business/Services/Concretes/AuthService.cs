@@ -167,29 +167,50 @@ namespace Risen.Business.Services.Concretes
             var code = new Random().Next(100000, 999999).ToString();
 
             var body = $@"
-<div style='font-family: Arial, sans-serif; background-color:#f4f6f8; padding:40px;'>
-    <div style='max-width:500px; margin:0 auto; background:#ffffff; padding:30px; border-radius:12px; 
-                box-shadow: 0 10px 25px rgba(0,0,0,0.1); text-align:center;'>
+<div style='margin:0; padding:0; background:#0f172a; font-family:Segoe UI, Arial, sans-serif;'>
 
-        <h2 style='color:#333;'>Email Verification</h2>
+    <div style='max-width:520px; margin:40px auto; background:#111827; 
+                border-radius:16px; padding:40px 30px; 
+                box-shadow:0 20px 40px rgba(0,0,0,0.6); text-align:center;'>
 
-        <p style='font-size:16px; color:#555;'>
-            Your verification code is:
+        <!-- Logo / Title -->
+        <h1 style='color:#a78bfa; margin-bottom:10px; letter-spacing:1px;'>
+            RISEN
+        </h1>
+
+        <p style='color:#9ca3af; font-size:14px; margin-bottom:30px;'>
+            Verify your account
         </p>
 
-        <div style='margin:20px 0;'>
-            <span style='display:inline-block; font-size:28px; letter-spacing:6px; 
-                         font-weight:bold; color:#ffffff; background:#4f46e5; 
-                         padding:12px 24px; border-radius:8px;'>
+        <!-- OTP Box -->
+        <div style='background: linear-gradient(135deg,#6366f1,#8b5cf6);
+                    padding:18px 0; border-radius:12px; margin-bottom:25px;'>
+
+            <span style='font-size:32px; color:white; 
+                         letter-spacing:8px; font-weight:bold;'>
                 {code}
             </span>
         </div>
 
-        <p style='font-size:12px; color:#888;'>
-            This code will expire in 10 minutes. Do not share it with anyone.
+        <!-- Message -->
+        <p style='color:#d1d5db; font-size:15px; line-height:1.6;'>
+            Use this verification code to complete your registration.
+        </p>
+
+        <p style='color:#6b7280; font-size:12px; margin-top:20px;'>
+            This code will expire in 60 seconds.
+        </p>
+
+        <!-- Divider -->
+        <div style='margin:30px 0; height:1px; background:#1f2937;'></div>
+
+        <!-- Footer -->
+        <p style='color:#6b7280; font-size:12px;'>
+            © 2026 Risen. All rights reserved.
         </p>
 
     </div>
+
 </div>
 ";
 

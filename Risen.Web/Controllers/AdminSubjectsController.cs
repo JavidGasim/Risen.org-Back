@@ -16,13 +16,6 @@ namespace Risen.Web.Controllers
         private readonly AppDbContext _db;
         private readonly ILogger<AdminSubjectsController> _logger;
         private readonly Risen.Business.Services.Abstracts.IAdminAuditService _audit;
-
-        public AdminSubjectsController(AppDbContext db, ILogger<AdminSubjectsController> logger)
-        {
-            _db = db;
-            _logger = logger;
-        }
-
         public AdminSubjectsController(AppDbContext db, ILogger<AdminSubjectsController> logger, Risen.Business.Services.Abstracts.IAdminAuditService audit)
         {
             _db = db;
