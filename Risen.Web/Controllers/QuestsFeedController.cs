@@ -29,5 +29,16 @@ namespace Risen.Web.Controllers
             _logger.LogInformation("User {UserId} requested today's quests feed with take={Take}", userId, take);
             return Ok(await _feed.GetTodayAsync(userId, take, ct));
         }
+
+        // GET /api/quests/all?limit=50&offset=0&includeInactive=false
+        [Authorize]
+        [HttpGet("all")]
+        public async Task<ActionResult<IReadOnlyList<QuestListItemDto>>> All([FromQuery] int limit = 50, [FromQuery] int offset = 0, [FromQuery] bool includeInactive = false, CancellationToken ct = default)
+        {
+            _logger.LogInformation("Quests feed: all requested by {User}", User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "anonymous");
+            var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var items = await _feed.GetAllAsync(userId, limit, offset, includeInactive, ct);
+            return Ok(items);
+        }
     }
 }

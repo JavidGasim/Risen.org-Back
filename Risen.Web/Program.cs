@@ -145,6 +145,9 @@ builder.Services.AddScoped<Risen.Business.Services.Abstracts.IAdminAuditService,
 builder.Services.AddFluentValidationAutoValidation();
 builder.Services.AddValidatorsFromAssemblyContaining<RegisterRequestValidator>();
 
+// Subjects
+builder.Services.AddScoped<Risen.Business.Services.Abstracts.ISubjectService, Risen.Business.Services.Concretes.SubjectService>();
+
 builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();

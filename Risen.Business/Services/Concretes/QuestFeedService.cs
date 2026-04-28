@@ -23,6 +23,33 @@ namespace Risen.Business.Services.Concretes
             _questEnt = questEnt;
         }
 
+        public async Task<IReadOnlyList<Risen.Contracts.Quests.QuestListItemDto>> GetAllAsync(Guid userId, int limit, int offset, bool includeInactive, CancellationToken ct)
+        {
+            limit = Math.Clamp(limit, 1, 1000);
+            offset = Math.Max(0, offset);
+
+            var q = _db.Quests.AsNoTracking().Include(x => x.Options).AsQueryable();
+            if (!includeInactive) q = q.Where(x => x.IsActive);
+
+            var items = await q.OrderByDescending(x => x.CreatedAtUtc).Skip(offset).Take(limit).ToListAsync(ct);
+            var questIds = items.Select(x => x.Id).ToList();
+            var completedEver = (await _db.QuestAttempts.AsNoTracking()
+                .Where(a => a.UserId == userId && questIds.Contains(a.QuestId) && a.CompletedDateUtc != null)
+                .Select(a => a.QuestId)
+                .ToListAsync(ct)).ToHashSet();
+
+            return items.Select(quest => new Risen.Contracts.Quests.QuestListItemDto(
+                Id: quest.Id,
+                Title: quest.QuestionText,
+                Description: quest.Description,
+                Difficulty: quest.Difficulty,
+                BaseXp: quest.BaseXp,
+                IsPremiumOnly: quest.IsPremiumOnly,
+                IsCompletedToday: false,
+                IsCompletedEver: completedEver.Contains(quest.Id)
+            )).ToList();
+        }
+
         public async Task<TodayQuestsResponse> GetTodayAsync(Guid userId, int take, CancellationToken ct)
         {
             take = Math.Clamp(take, 1, 50);
@@ -72,11 +99,22 @@ namespace Risen.Business.Services.Concretes
             var ordered = eligible
                 .OrderBy(x => DeterministicScore(x.Id, dayKey))
                 .Take(take)
+                .ToList();
+
+            // Determine if each quest was ever completed by the user
+            var questIds = ordered.Select(q => q.Id).ToList();
+            var completedEverSet = (await _db.QuestAttempts.AsNoTracking()
+                .Where(a => a.UserId == userId && questIds.Contains(a.QuestId) && a.CompletedDateUtc != null)
+                .Select(a => a.QuestId)
+                .ToListAsync(ct)).ToHashSet();
+
+            var todayDtos = ordered
                 .Select(x => new TodayQuestDto(
                     Id: x.Id,
                     Title: x.QuestionText,
                     XpReward: x.BaseXp, // alias varsa BaseXp-ə bağlanır
-                   IsCompletedToday: completedSet.Contains(x.Id),
+                    IsCompletedToday: completedSet.Contains(x.Id),
+                    IsCompletedEver: completedEverSet.Contains(x.Id),
                     Options: x.Options
                         .OrderBy(o => o.Index)
                         .Select(o => new QuestOptionDto(o.Index, o.Text))
@@ -88,7 +126,7 @@ namespace Risen.Business.Services.Concretes
                 DailyLimit: dailyLimit,
                 CompletedToday: completedTodayCount,
                 RemainingToday: remaining,
-                Items: ordered
+                Items: todayDtos
             );
         }
 

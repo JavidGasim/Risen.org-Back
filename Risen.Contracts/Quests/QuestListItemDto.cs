@@ -14,6 +14,7 @@ namespace Risen.Contracts.Quests
      QuestDifficulty Difficulty,
      int BaseXp,
      bool IsPremiumOnly,
-     bool IsCompletedToday
+     bool IsCompletedToday,
+     bool IsCompletedEver
  );
 }

@@ -62,12 +62,21 @@ namespace Risen.Business.Services.Concretes
                 .ThenBy(x => x.QuestionText)
                 .ToListAsync(ct);
 
+            var questIds = quests.Select(x => x.Id).ToList();
+            var completedEver = await _db.QuestAttempts.AsNoTracking()
+                .Where(a => a.UserId == userId && questIds.Contains(a.QuestId) && a.CompletedDateUtc != null)
+                .Select(a => a.QuestId)
+                .ToListAsync(ct);
+
+            var completedEverSet = completedEver.ToHashSet();
+
             var items = quests
                 .Select(x => new TodayQuestDto(
                     Id: x.Id,
                     Title: x.QuestionText,
                     XpReward: x.BaseXp,
                     IsCompletedToday: completedSet.Contains(x.Id),
+                    IsCompletedEver: completedEverSet.Contains(x.Id),
                     Options: x.Options
                         .OrderBy(o => o.Index)
                         .Select(o => new QuestOptionDto(o.Index, o.Text))
@@ -101,6 +110,9 @@ namespace Risen.Business.Services.Concretes
                             && a.CompletedDateUtc >= start
                             && a.CompletedDateUtc < end, ct);
 
+            var completedEver = await _db.QuestAttempts.AsNoTracking()
+                .AnyAsync(a => a.UserId == userId && a.QuestId == questId && a.CompletedDateUtc != null, ct);
+
             var q = _db.Quests.AsNoTracking()
                 .Where(x => x.Id == questId && x.IsActive);
 
@@ -124,7 +136,8 @@ namespace Risen.Business.Services.Concretes
                     x.Difficulty,
                     x.BaseXp,
                     x.IsPremiumOnly,
-                    completed
+                    completed,
+                    completedEver
                 ))
                 .FirstOrDefaultAsync(ct);
         }
@@ -144,6 +157,13 @@ namespace Risen.Business.Services.Concretes
                          && a.CompletedDateUtc < end)
                 .Select(a => a.QuestId)
                 .ToListAsync(ct);
+
+            var completedEverIds = await _db.QuestAttempts.AsNoTracking()
+                .Where(a => a.UserId == userId && a.CompletedDateUtc != null)
+                .Select(a => a.QuestId)
+                .ToListAsync(ct);
+
+            var completedEverSet = completedEverIds.ToHashSet();
 
             var completedSet = completedIds.ToHashSet();
 
@@ -171,7 +191,8 @@ namespace Risen.Business.Services.Concretes
                     x.Difficulty,
                     x.BaseXp,
                     x.IsPremiumOnly,
-                    completedSet.Contains(x.Id)
+                    completedSet.Contains(x.Id),
+                    completedEverSet.Contains(x.Id)
                 ))
                 .ToListAsync(ct);
         }

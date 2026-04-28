@@ -95,13 +95,11 @@ namespace Risen.Business.Services.Concretes
 
             var limitReached = completedTodayCount >= dailyLimit;
 
-            // bu quest bu gün artıq tamamlanıb?
-            var alreadyCompletedThisQuestToday = await _db.QuestAttempts.AsNoTracking()
+            // has the user ever completed this quest?
+            var alreadyCompletedEver = await _db.QuestAttempts.AsNoTracking()
                 .AnyAsync(a => a.UserId == userId
                             && a.QuestId == req.QuestId
-                            && a.CompletedDateUtc != null
-                            && a.CompletedDateUtc >= start
-                            && a.CompletedDateUtc < end, ct);
+                            && a.CompletedDateUtc != null, ct);
 
             // difficulty multiplier (server-side)
             var multiplier = quest.Difficulty switch
@@ -118,7 +116,7 @@ namespace Risen.Business.Services.Concretes
             // Stats (streak üçün lazımdır)
             var stats = await _statsService.EnsureStatsAsync(userId, ct);
 
-            if (!limitReached && isCorrect && !alreadyCompletedThisQuestToday)
+            if (!limitReached && isCorrect && !alreadyCompletedEver)
             {
                 // 1) Quest XP (idempotent SourceKey)
                 var questSourceKey = $"Quest:{quest.Id}:date:{today:yyyyMMdd}";
@@ -177,7 +175,8 @@ namespace Risen.Business.Services.Concretes
             }
 
             // CompletedDateUtc yalnız “tamamlanma” sayılırsa yazılır
-            DateTime? completedDateUtc = (!limitReached && isCorrect && !alreadyCompletedThisQuestToday)
+            // If the quest was already completed ever, do not record it as a new completion (and do not award XP).
+            DateTime? completedDateUtc = (!limitReached && isCorrect && !alreadyCompletedEver)
                 ? now
                 : null;
 
@@ -196,7 +195,12 @@ namespace Risen.Business.Services.Concretes
                 CompletedDateUtc = completedDateUtc
             };
 
-            _db.QuestAttempts.Add(attempt);
+            // If the quest was already completed ever, do not insert a new "completed" attempt;
+            // still log the attempt (incorrect tries) only if it wasn't already completed ever.
+            if (!alreadyCompletedEver)
+            {
+                _db.QuestAttempts.Add(attempt);
+            }
 
             await _db.SaveChangesAsync(ct);
             await tx.CommitAsync(ct);
