@@ -123,6 +123,37 @@ namespace Risen.Web.Controllers
             return Ok(await _svc.GetUniversityAsync(uniId.Value, leagueCode, limit, offset, ct));
         }
 
+        // GET /api/leaderboards/my-league
+        [Authorize]
+        [HttpGet("my-league")]
+        public async Task<ActionResult<LeaderboardResponse>> MyLeague([FromQuery] int limit = 50, [FromQuery] int offset = 0, CancellationToken ct = default)
+        {
+            var idStr =
+    User.FindFirstValue(ClaimTypes.NameIdentifier) ??
+    User.FindFirstValue(JwtRegisteredClaimNames.Sub) ??
+    User.FindFirstValue("sub");
+
+            if (string.IsNullOrWhiteSpace(idStr))
+                return Unauthorized("User id claim is missing.");
+
+            var userId = Guid.Parse(idStr);
+
+            // Find user's current league code
+            var leagueCode = await (from s in _db.UserStats.AsNoTracking()
+                                    join t in _db.LeagueTiers.AsNoTracking() on s.CurrentLeagueTierId equals t.Id
+                                    where s.UserId == userId
+                                    select t.Code).FirstOrDefaultAsync(ct);
+
+            if (leagueCode == default)
+            {
+                _logger.LogWarning("User {UserId} does not have a league tier set.", userId);
+                return Ok(new LeaderboardResponse(limit, offset, Array.Empty<LeaderboardEntryDto>(), 0));
+            }
+
+            _logger.LogInformation("Fetching league leaderboard for user {UserId}, league {League}, limit {Limit}, offset {Offset}", userId, leagueCode, limit, offset);
+            return Ok(await _svc.GetGlobalAsync(leagueCode, limit, offset, ct));
+        }
+
         private static LeagueCode? ParseLeague(string? league)
         {
             if (string.IsNullOrWhiteSpace(league)) return null;
