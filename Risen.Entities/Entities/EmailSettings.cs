@@ -13,6 +13,6 @@ namespace Risen.Entities.Entities
         public string Email { get; set; }
         public string Password { get; set; }
         public bool EnableSsl { get; set; }
-        public string FrontendBaseUrl { get; set; } = "http://localhost:3000";
+        public string FrontendBaseUrl { get; set; } = "http://localhost:5173";
     }
 }

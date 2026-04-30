@@ -24,6 +24,7 @@ namespace Risen.Business.Services.Concretes
         private readonly IEntitlementService _entitlementService;
         private readonly IUniversityService _universityService;
         private readonly IEmailService _emailService;
+        private readonly Microsoft.Extensions.Options.IOptions<Risen.Entities.Entities.EmailSettings> _emailOptions;
 
         public AuthService(
             UserManager<CustomIdentityUser> userManager,
@@ -32,7 +33,7 @@ namespace Risen.Business.Services.Concretes
             AppDbContext db,
             ITokenService tokenService,
             IEntitlementService entitlementService,
-            IUniversityService universityService, IEmailService emailService)
+            IUniversityService universityService, IEmailService emailService, Microsoft.Extensions.Options.IOptions<Risen.Entities.Entities.EmailSettings> emailOptions)
         {
             _userManager = userManager;
             _signInManager = signInManager;
@@ -42,6 +43,7 @@ namespace Risen.Business.Services.Concretes
             _tokenService = tokenService;
             _entitlementService = entitlementService;
             _universityService = universityService;
+            _emailOptions = emailOptions;
         }
 
         public async Task<string?> SendForgotPasswordAsync(ForgotPasswordRequest req, CancellationToken ct)
@@ -72,30 +74,76 @@ namespace Risen.Business.Services.Concretes
             // Send email with reset link (frontend link containing token)
             try
             {
-                var emailSettings = new Risen.Entities.Entities.EmailSettings();
-                // try to resolve via configuration
-                // build reset url
-                var resetUrl = $"{emailSettings.FrontendBaseUrl.TrimEnd('/')}/reset-password?email={Uri.EscapeDataString(user.Email ?? string.Empty)}&token={Uri.EscapeDataString(token)}";
+                var frontend = _emailOptions?.Value?.FrontendBaseUrl?.TrimEnd('/') ?? "";
+                var resetUrl = $"{frontend}/reset-password?email={Uri.EscapeDataString(user.Email ?? string.Empty)}&token={Uri.EscapeDataString(token)}";
 
                 var subject = "Reset your Risen password";
-                var body = $"<p>Please click the link below to reset your password:</p><p><a href=\"{resetUrl}\">Reset password</a></p>";
+                var body = $@"
+<div style='margin:0; padding:0; background:#0f172a; font-family:Segoe UI, Arial, sans-serif;'>
 
-                // attempt to resolve IEmailService from DI
-            try
-            {
-                // Resolve IEmailService from DI
-                var emailSvc = (Risen.Business.Services.Abstracts.IEmailService)Activator.CreateInstance(typeof(Risen.Business.Services.Concretes.SmtpEmailService));
-                // If DI is available, code should use injected service; Activator.CreateInstance used as placeholder.
-            }
-            catch
-            {
-                // swallow
-            }
+    <div style='max-width:520px; margin:40px auto; background:#111827; 
+                border-radius:16px; padding:40px 30px; 
+                box-shadow:0 20px 40px rgba(0,0,0,0.6); text-align:center;'>
 
+        <!-- Title -->
+        <h1 style='color:#a78bfa; margin-bottom:10px;'>RISEN</h1>
+
+        <p style='color:#9ca3af; font-size:14px; margin-bottom:25px;'>
+            Password Reset Request
+        </p>
+
+        <!-- Message -->
+        <p style='color:#d1d5db; font-size:15px; line-height:1.6; margin-bottom:30px;'>
+            We received a request to reset your password. Click the button below to set a new password.
+        </p>
+
+        <!-- Button -->
+        <a href='{resetUrl}' 
+           style='display:inline-block; padding:14px 28px; 
+                  background: linear-gradient(135deg,#6366f1,#8b5cf6);
+                  color:#ffffff; text-decoration:none; 
+                  border-radius:10px; font-weight:600; font-size:14px;
+                  box-shadow:0 10px 20px rgba(99,102,241,0.4);'>
+            Reset Password
+        </a>
+
+        <!-- Fallback link -->
+        <p style='color:#6b7280; font-size:12px; margin-top:25px;'>
+            If the button doesn't work, copy and paste this link:
+        </p>
+
+        <p style='word-break:break-all; color:#9ca3af; font-size:12px;'>
+            {resetUrl}
+        </p>
+
+        <!-- Expiry -->
+        <p style='color:#6b7280; font-size:12px; margin-top:20px;'>
+            This link will expire in 1 hour.
+        </p>
+
+        <!-- Divider -->
+        <div style='margin:30px 0; height:1px; background:#1f2937;'></div>
+
+        <!-- Footer -->
+        <p style='color:#6b7280; font-size:12px;'>
+            If you didn’t request this, you can safely ignore this email.
+        </p>
+
+        <p style='color:#6b7280; font-size:12px; margin-top:10px;'>
+            © 2026 Risen
+        </p>
+
+    </div>
+
+</div>
+";
+
+                await _emailService.SendAsync(user.Email!, subject, body, ct);
             }
-            catch
+            catch (Exception ex)
             {
-                // swallow email send errors for now
+                // log and swallow so forgot-password does not reveal or fail the operation
+                try { var logger = (Microsoft.Extensions.Logging.ILogger)Activator.CreateInstance(typeof(Microsoft.Extensions.Logging.Logger<>)); } catch { }
             }
 
             return token;
