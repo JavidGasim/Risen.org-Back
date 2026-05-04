@@ -46,7 +46,8 @@ namespace Risen.Business.Services.Concretes
                 BaseXp: quest.BaseXp,
                 IsPremiumOnly: quest.IsPremiumOnly,
                 IsCompletedToday: false,
-                IsCompletedEver: completedEver.Contains(quest.Id)
+                IsCompletedEver: completedEver.Contains(quest.Id),
+                SubjectCode: quest.SubjectCode
             )).ToList();
         }
 
@@ -119,6 +120,8 @@ namespace Risen.Business.Services.Concretes
                         .OrderBy(o => o.Index)
                         .Select(o => new QuestOptionDto(o.Index, o.Text))
                         .ToList()
+                    ,
+                    SubjectCode: x.SubjectCode
                 ))
                 .ToList();
 

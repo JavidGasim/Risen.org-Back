@@ -12,7 +12,8 @@ namespace Risen.Contracts.Quests
      int XpReward,
      bool IsCompletedToday,
      bool IsCompletedEver,
-     List<QuestOptionDto> Options // yalnız əgər listdən oynadırsansa
+     List<QuestOptionDto> Options, // yalnız əgər listdən oynadırsansa
+     string? SubjectCode
  );
 
 }

@@ -10,7 +10,8 @@ namespace Risen.Contracts.Quests
     Guid Id,
     string QuestionText,
     List<QuestOptionDto> Options,
-    int XpReward
+    int XpReward,
+    string? SubjectCode
 );
 
     public record QuestOptionDto(int Index, string Text);

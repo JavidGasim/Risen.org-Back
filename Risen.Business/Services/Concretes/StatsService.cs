@@ -93,6 +93,10 @@ namespace Risen.Business.Services.Concretes
                 throw new NotFoundException("User stats not found...");
 
             var (isPremium, plan) = await _entitlement.GetUserEntitlementAsync(userId, ct);
+            // If the user hasn't completed a streak-day within the last day, their current streak is considered reset
+            var effectiveCurrentStreak = (row.LastStreakDateUtc.HasValue && row.LastStreakDateUtc.Value.Date >= DateTime.UtcNow.Date.AddDays(-1))
+                ? row.CurrentStreak
+                : 0;
 
             return new MeStatsDto(
        UserId: row.Id,
@@ -107,7 +111,7 @@ namespace Risen.Business.Services.Concretes
        LeagueName: row.LeagueName,
        RisenScore: row.RisenScore,  // ← əlavə et
 
-       CurrentStreak: row.CurrentStreak,
+       CurrentStreak: effectiveCurrentStreak,
        LongestStreak: row.LongestStreak,
        LastStreakDateUtc: row.LastStreakDateUtc,
 

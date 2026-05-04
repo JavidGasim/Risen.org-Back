@@ -15,6 +15,7 @@ namespace Risen.Contracts.Quests
      int BaseXp,
      bool IsPremiumOnly,
      bool IsCompletedToday,
-     bool IsCompletedEver
+     bool IsCompletedEver,
+     string? SubjectCode
  );
 }

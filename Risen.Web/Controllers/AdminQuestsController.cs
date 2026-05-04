@@ -79,7 +79,7 @@ namespace Risen.Web.Controllers
             }
             catch { /* swallow audit errors */ }
 
-            var dto = new QuestDto(quest.Id, quest.QuestionText, quest.Options.OrderBy(o=>o.Index).Select(o=>new QuestOptionDto(o.Index,o.Text)).ToList(), quest.BaseXp);
+            var dto = new QuestDto(quest.Id, quest.QuestionText, quest.Options.OrderBy(o=>o.Index).Select(o=>new QuestOptionDto(o.Index,o.Text)).ToList(), quest.BaseXp, quest.SubjectCode);
             return CreatedAtAction(nameof(GetById), new { id = quest.Id }, dto);
         }
 
@@ -90,7 +90,7 @@ namespace Risen.Web.Controllers
             offset = Math.Max(0, offset);
 
             var q = await _db.Quests.Include(q=>q.Options).OrderByDescending(q=>q.CreatedAtUtc).Skip(offset).Take(limit).ToListAsync(ct);
-            var list = q.Select(quest => new QuestDto(quest.Id, quest.QuestionText, quest.Options.OrderBy(o=>o.Index).Select(o=>new QuestOptionDto(o.Index,o.Text)).ToList(), quest.BaseXp)).ToList();
+            var list = q.Select(quest => new QuestDto(quest.Id, quest.QuestionText, quest.Options.OrderBy(o=>o.Index).Select(o=>new QuestOptionDto(o.Index,o.Text)).ToList(), quest.BaseXp, quest.SubjectCode)).ToList();
             return Ok(list);
         }
 
@@ -99,7 +99,7 @@ namespace Risen.Web.Controllers
         {
             var quest = await _db.Quests.Include(q=>q.Options).FirstOrDefaultAsync(q=>q.Id==id, ct);
             if (quest is null) return NotFound();
-            var dto = new QuestDto(quest.Id, quest.QuestionText, quest.Options.OrderBy(o=>o.Index).Select(o=>new QuestOptionDto(o.Index,o.Text)).ToList(), quest.BaseXp);
+            var dto = new QuestDto(quest.Id, quest.QuestionText, quest.Options.OrderBy(o=>o.Index).Select(o=>new QuestOptionDto(o.Index,o.Text)).ToList(), quest.BaseXp, quest.SubjectCode);
             return Ok(dto);
         }
 
