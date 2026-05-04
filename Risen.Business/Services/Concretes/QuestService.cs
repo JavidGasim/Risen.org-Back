@@ -174,9 +174,12 @@ namespace Risen.Business.Services.Concretes
                 }
             }
 
-            // CompletedDateUtc yalnız “tamamlanma” sayılırsa yazılır
-            // If the quest was already completed ever, do not record it as a new completion (and do not award XP).
-            DateTime? completedDateUtc = (!limitReached && isCorrect && !alreadyCompletedEver)
+            // CompletedDateUtc: record the calendar-day of the attempt when it should count toward
+            // the daily limit. Previously this was only set for correct answers; change behavior
+            // so that the first qualifying attempt (within limits and not already completed ever)
+            // records CompletedDateUtc even if the answer is incorrect.
+            // If the quest was already completed ever, do not record a new completion.
+            DateTime? completedDateUtc = (!limitReached && !alreadyCompletedEver)
                 ? now
                 : null;
 
