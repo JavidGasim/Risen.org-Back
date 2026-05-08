@@ -78,62 +78,44 @@ namespace Risen.Business.Services.Concretes
                 var resetUrl = $"{frontend}/reset-password?email={Uri.EscapeDataString(user.Email ?? string.Empty)}&token={Uri.EscapeDataString(token)}";
 
                 var subject = "Reset your Risen password";
+
+                // HTML-encode token for safe display
+                var tokenDisplay = System.Net.WebUtility.HtmlEncode(token);
+
                 var body = $@"
 <div style='margin:0; padding:0; background:#0f172a; font-family:Segoe UI, Arial, sans-serif;'>
 
-    <div style='max-width:520px; margin:40px auto; background:#111827; 
-                border-radius:16px; padding:40px 30px; 
-                box-shadow:0 20px 40px rgba(0,0,0,0.6); text-align:center;'>
+  <div style='max-width:640px; margin:28px auto; background:#0b1220; 
+              border-radius:12px; padding:28px 26px; 
+              box-shadow:0 12px 28px rgba(0,0,0,0.6);'>
 
-        <!-- Title -->
-        <h1 style='color:#a78bfa; margin-bottom:10px;'>RISEN</h1>
-
-        <p style='color:#9ca3af; font-size:14px; margin-bottom:25px;'>
-            Password Reset Request
-        </p>
-
-        <!-- Message -->
-        <p style='color:#d1d5db; font-size:15px; line-height:1.6; margin-bottom:30px;'>
-            We received a request to reset your password. Click the button below to set a new password.
-        </p>
-
-        <!-- Button -->
-        <a href='{resetUrl}' 
-           style='display:inline-block; padding:14px 28px; 
-                  background: linear-gradient(135deg,#6366f1,#8b5cf6);
-                  color:#ffffff; text-decoration:none; 
-                  border-radius:10px; font-weight:600; font-size:14px;
-                  box-shadow:0 10px 20px rgba(99,102,241,0.4);'>
-            Reset Password
-        </a>
-
-        <!-- Fallback link -->
-        <p style='color:#6b7280; font-size:12px; margin-top:25px;'>
-            If the button doesn't work, copy and paste this link:
-        </p>
-
-        <p style='word-break:break-all; color:#9ca3af; font-size:12px;'>
-            {resetUrl}
-        </p>
-
-        <!-- Expiry -->
-        <p style='color:#6b7280; font-size:12px; margin-top:20px;'>
-            This link will expire in 1 hour.
-        </p>
-
-        <!-- Divider -->
-        <div style='margin:30px 0; height:1px; background:#1f2937;'></div>
-
-        <!-- Footer -->
-        <p style='color:#6b7280; font-size:12px;'>
-            If you didn’t request this, you can safely ignore this email.
-        </p>
-
-        <p style='color:#6b7280; font-size:12px; margin-top:10px;'>
-            © 2026 Risen
-        </p>
-
+    <div style='text-align:center'>
+      <h1 style='color:#8b5cf6; margin:0 0 8px 0; font-size:22px;'>RISEN</h1>
+      <p style='color:#9ca3af; margin:0 0 18px 0; font-size:13px;'>Password Reset Request</p>
     </div>
+
+    <div style='color:#d1d5db; font-size:14px; line-height:1.5; margin-bottom:18px;'>
+      We received a request to reset your password. You can either click the button below, or copy the token shown and paste it into the app's reset form.
+    </div>
+
+    <div style='text-align:center; margin-bottom:18px;'>
+      <a href='{resetUrl}' style='display:inline-block; padding:12px 22px; background:linear-gradient(90deg,#6366f1,#8b5cf6); color:#fff; text-decoration:none; border-radius:8px; font-weight:600;'>Reset Password</a>
+    </div>
+
+    <div style='background:#081024; border:1px solid #1f2937; padding:14px; border-radius:8px; margin-bottom:12px;'>
+      <div style='color:#9ca3af; font-size:12px; margin-bottom:6px;'>Reset token (copy and paste into the app):</div>
+      <div style='font-family:Consolas, ""Courier New"", monospace; background:#010214; color:#e6edf3; padding:10px; border-radius:6px; word-break:break-all; font-size:13px;'>{tokenDisplay}</div>
+    </div>
+
+    <div style='color:#6b7280; font-size:12px; margin-top:6px;'>This token will expire in 1 hour.</div>
+
+    <div style='margin:20px 0; height:1px; background:#0f172a;'></div>
+
+    <div style='color:#6b7280; font-size:12px;'>If you didn’t request this, you can safely ignore this email.</div>
+
+    <div style='color:#6b7280; font-size:12px; margin-top:10px;'>© 2026 Risen</div>
+
+  </div>
 
 </div>
 ";
@@ -207,6 +189,24 @@ namespace Risen.Business.Services.Concretes
             // revoke token
             stored.RevokedAtUtc = DateTime.UtcNow;
             await _db.SaveChangesAsync(ct);
+
+            // Send a different, simple confirmation email for reset-password action
+            try
+            {
+                var subjectOk = "Your Risen password was changed";
+                var bodyOk = $@"
+<div style='font-family:Segoe UI, Arial, sans-serif; background:#f6f7fb; padding:20px;'>
+  <div style='max-width:600px; margin:0 auto; background:#ffffff; border-radius:8px; padding:20px; box-shadow:0 6px 18px rgba(2,6,23,0.08);'>
+    <h2 style='margin:0 0 8px 0; color:#111827;'>Password changed</h2>
+    <p style='margin:0 0 12px 0; color:#374151;'>This is a confirmation that your password for the Risen account <strong>{user.Email}</strong> was successfully changed.</p>
+    <p style='margin:0 0 12px 0; color:#374151;'>If you did not perform this change, please reset your password again immediately or contact support.</p>
+    <div style='margin-top:14px; font-size:12px; color:#6b7280;'>This action was performed at {DateTime.UtcNow:yyyy-MM-dd HH:mm} UTC.</div>
+  </div>
+</div>
+";
+                await _emailService.SendAsync(user.Email!, subjectOk, bodyOk, ct);
+            }
+            catch { /* swallow email errors */ }
 
             // Automatically log in the user and return tokens
             var roles = await _userManager.GetRolesAsync(user);
