@@ -38,7 +38,15 @@ namespace Risen.Web.Controllers
             offset = Math.Max(0, offset);
 
             var q = _db.Users.AsNoTracking().OrderBy(u => u.FullName).Skip(offset).Take(limit);
-            var items = await q.Select(u => new { u.Id, u.FullName, u.Email, u.UniversityId }).ToListAsync(ct);
+            var items = await q.Select(u => new
+            {
+                u.Id,
+                u.FullName,
+                u.Email,
+                u.UniversityId,
+                u.Stats,
+                IsAdmin = _db.UserRoles.Any(ur => ur.UserId == u.Id && _db.Roles.Any(r => r.Id == ur.RoleId && r.Name == "Admin"))
+            }).ToListAsync(ct);
             return Ok(items);
         }
 
