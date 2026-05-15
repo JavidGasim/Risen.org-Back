@@ -11,6 +11,7 @@ using Risen.Business.Services.Concretes;
 using Risen.Business.Validators;
 using Risen.DataAccess.Data;
 using Risen.Entities.Entities;
+using Risen.Web.Hubs;
 using Risen.Web.Infrastructure;
 using Risen.Web.Middlewares;
 using Serilog;
@@ -153,6 +154,9 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+builder.Services.AddSignalR();
+
+
 var app = builder.Build();
 
 await IdentitySeeder.SeedAdminAsync(app.Services, app.Environment);
@@ -174,6 +178,7 @@ app.UseAuthentication();
 app.UseMiddleware<LastOnlineMiddleware>();
 app.UseAuthorization();
 
+app.MapHub<NotificationHub>("/notificationHub");
 app.MapControllers();
 
 app.Run();

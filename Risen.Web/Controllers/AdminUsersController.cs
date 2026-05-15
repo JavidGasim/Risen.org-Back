@@ -1,9 +1,11 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Risen.DataAccess.Data;
 using Risen.Entities.Entities;
+using Risen.Web.Hubs;
 using System.Security.Claims;
 
 namespace Risen.Web.Controllers
@@ -17,13 +19,16 @@ namespace Risen.Web.Controllers
         private readonly UserManager<CustomIdentityUser> _users;
         private readonly RoleManager<CustomIdentityRole> _roles;
         private readonly ILogger<AdminUsersController> _logger;
+        private readonly IHubContext<NotificationHub> _hub;
 
-        public AdminUsersController(AppDbContext db, UserManager<CustomIdentityUser> users, RoleManager<CustomIdentityRole> roles, ILogger<AdminUsersController> logger)
+
+        public AdminUsersController(AppDbContext db, UserManager<CustomIdentityUser> users, RoleManager<CustomIdentityRole> roles, ILogger<AdminUsersController> logger, IHubContext<NotificationHub> hub)
         {
             _db = db;
             _users = users;
             _roles = roles;
             _logger = logger;
+            _hub = hub;
         }
         private Guid GetAdminId()
         {
@@ -78,6 +83,11 @@ namespace Risen.Web.Controllers
                     CreatedAtUtc = DateTime.UtcNow
                 });
                 await _db.SaveChangesAsync(ct);
+
+                await _hub.Clients.User(user.Id.ToString()).SendAsync("Role Changed", role, cancellationToken: ct);
+
+                _logger.LogInformation("Admin {AdminId} added role {Role} to user {UserId}", adminId, role, user.Id);
+
             }
             catch { }
             return NoContent();
@@ -104,6 +114,10 @@ namespace Risen.Web.Controllers
                     CreatedAtUtc = DateTime.UtcNow
                 });
                 await _db.SaveChangesAsync(ct);
+
+                await _hub.Clients.User(user.Id.ToString()).SendAsync("Role Changed", role, cancellationToken: ct);
+
+                _logger.LogInformation("Admin {AdminId} removed role {Role} from user {UserId}", adminId, role, user.Id);
             }
             catch { }
             return NoContent();

@@ -332,17 +332,24 @@ namespace Risen.Business.Services.Concretes
                 ExpiresAtUtc = rt.ExpiresAtUtc
             });
 
-            if (user.LastOnlineAtUtc.HasValue &&
-    user.LastOnlineAtUtc.Value.Date < DateTime.UtcNow.Date.AddDays(-1))
+            if (user.LastOnlineAtUtc.HasValue)
             {
-                if (user?.Stats?.CurrentStreak != null)
-                {
-                    user.Stats.CurrentStreak = 0;
-                    user.LastOnlineAtUtc = DateTime.UtcNow;
-                    await _userManager.UpdateAsync(user);
-                }
-            }
+                var lastDate = user.LastOnlineAtUtc.Value.Date;
+                var currentDate = DateTime.UtcNow.Date;
 
+                var dayDifference = (currentDate - lastDate).Days;
+
+                if (dayDifference > 1)
+                {
+                    if (user?.Stats != null)
+                    {
+                        user.Stats.CurrentStreak = 0;
+                    }
+                }
+
+                user.LastOnlineAtUtc = DateTime.UtcNow;
+                await _userManager.UpdateAsync(user);
+            }
             else
             {
                 user.LastOnlineAtUtc = DateTime.UtcNow;
