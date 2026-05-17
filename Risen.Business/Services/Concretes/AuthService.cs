@@ -309,16 +309,48 @@ namespace Risen.Business.Services.Concretes
         public async Task<AuthResponse> LoginAsync(LoginRequest req, CancellationToken ct)
         {
             var user = await _userManager.FindByEmailAsync(req.Email);
-            if (user is null)
-                throw new BadRequestException("Email or password is wrong.");
 
-            var check = await _signInManager.CheckPasswordSignInAsync(user, req.Password, lockoutOnFailure: true);
-            if (!check.Succeeded)
-                throw new BadRequestException("Email or password is wrong.");
+if (user == null)
+{
+    throw new Exception("USER_NOT_FOUND");
+}
 
-            var roles = await _userManager.GetRolesAsync(user);
+var roles = await _userManager.GetRolesAsync(user);
+
+var isLockedOut = await _userManager.IsLockedOutAsync(user);
+
+var canSignIn = await _signInManager.CanSignInAsync(user);
+
+var passwordValid = await _userManager.CheckPasswordAsync(user, req.Password);
+
+var result = await _signInManager.CheckPasswordSignInAsync(
+    user,
+    req.Password,
+    lockoutOnFailure: false
+);
+
+Console.WriteLine($@"
+===== LOGIN DEBUG =====
+
+Email: {user.Email}
+Roles: {string.Join(",", roles)}
+
+LockedOut: {isLockedOut}
+CanSignIn: {canSignIn}
+PasswordValid: {passwordValid}
+
+Succeeded: {result.Succeeded}
+IsLockedOut: {result.IsLockedOut}
+IsNotAllowed: {result.IsNotAllowed}
+RequiresTwoFactor: {result.RequiresTwoFactor}
+
+========================
+");
+
+            //var roles = await _userManager.GetRolesAsync(user);
             var (isPremium, plan) = await _entitlementService.GetUserEntitlementAsync(user.Id, ct);
 
+            Console.WriteLine(roles);
             var access = _tokenService.CreateAccessToken(user, roles, isPremium, plan);
 
             var refreshDays = 30; // appsettings-dən də oxuya bilərsən

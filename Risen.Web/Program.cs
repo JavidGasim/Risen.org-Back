@@ -160,7 +160,6 @@ builder.Services.AddSignalR();
 var app = builder.Build();
 
 await IdentitySeeder.SeedAdminAsync(app.Services, app.Environment);
-
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {

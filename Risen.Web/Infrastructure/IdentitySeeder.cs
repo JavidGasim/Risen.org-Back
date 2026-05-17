@@ -5,113 +5,92 @@ using Risen.Entities.Entities;
 
 namespace Risen.Web.Infrastructure
 {
+    using Microsoft.AspNetCore.Identity;
+    using Microsoft.Extensions.DependencyInjection;
+    using Microsoft.Extensions.Hosting;
+
     public static class IdentitySeeder
     {
         public static async Task SeedAdminAsync(IServiceProvider services, IHostEnvironment env)
         {
             using var scope = services.CreateScope();
 
-            var opt = scope.ServiceProvider
-                .GetRequiredService<IOptions<AdminSeedOptions>>()
-                .Value;
-
-            // Dev və Test-də avtomatik icazə veririk.
-            // Prod-da yalnız Enabled=true olsa işləyir.
-            var allowByEnv = env.IsDevelopment() || env.IsEnvironment("Test");
-            if (!allowByEnv && !opt.Enabled)
-                return;
-
-            var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<CustomIdentityRole>>();
             var userManager = scope.ServiceProvider.GetRequiredService<UserManager<CustomIdentityUser>>();
+            var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<CustomIdentityRole>>();
 
-            const string adminRole = "Admin";
+            // ===== CONFIG (buranı appsettings-ə də çıxara bilərsən) =====
+            var adminEmail = "admin@gmail.com";
+            var adminPassword = "Admin123!@#";
+            var adminRole = "Admin";
 
-
-            foreach (var role in new[] { "Admin", "Student", "University" })
-            {
-                if (!await roleManager.RoleExistsAsync(role))
-                {
-                    await roleManager.CreateAsync(new CustomIdentityRole
-                    {
-                        Id = Guid.NewGuid(),
-                        Name = role
-                    });
-                }
-            }
-
-            // 1) Admin rolunu yarat (yoxdursa)
+            // ===== 1. ROLE CHECK =====
             if (!await roleManager.RoleExistsAsync(adminRole))
             {
-                var roleRes = await roleManager.CreateAsync(new CustomIdentityRole
+                var roleResult = await roleManager.CreateAsync(new CustomIdentityRole
                 {
                     Id = Guid.NewGuid(),
                     Name = adminRole
                 });
-
-                if (!roleRes.Succeeded)
-                    throw new InvalidOperationException("Cannot create Admin role: " +
-                        string.Join(" | ", roleRes.Errors.Select(e => e.Description)));
+                if (!roleResult.Succeeded)
+                    throw new Exception("Admin role creation failed: " +
+                        string.Join(", ", roleResult.Errors.Select(e => e.Description)));
             }
 
-            // 2) Admin user-i tap (yoxdursa yarat)
-            var email = (opt.Email ?? "").Trim().ToLowerInvariant();
-            if (string.IsNullOrWhiteSpace(email))
-                throw new InvalidOperationException("AdminSeed:Email is required.");
+            // ===== 2. USER CHECK =====
+            var user = await userManager.FindByEmailAsync(adminEmail);
 
-            var adminUser = await userManager.FindByEmailAsync(email);
-
-            if (adminUser is null)
+            if (user == null)
             {
-                // Yeni user yaradacağıqsa password mütləq lazımdır
-                var password = opt.Password;
-                if (string.IsNullOrWhiteSpace(password))
+                user = new CustomIdentityUser
                 {
-                    throw new InvalidOperationException(
-                        "AdminSeed:Password is missing. " +
-                        "Set it via User Secrets (Development) or Environment Variables (Test/CI).");
-                }
-
-                adminUser = new CustomIdentityUser
-                {
-                    Id = Guid.NewGuid(),
-                    Email = email,
-                    UserName = email,
-                    EmailConfirmed = true,
-
-                    FirstName = opt.FirstName.Trim(),
-                    LastName = opt.LastName.Trim(),
-                    FullName = $"{opt.FirstName} {opt.LastName}".Trim(),
-
-                    CreatedAtUtc = DateTime.UtcNow
+                    FirstName = "Admin",
+                    LastName = " User",
+                    UserName = adminEmail,
+                    FullName = "Admin User",
+                    Email = adminEmail,
+                    EmailConfirmed = true
                 };
 
-                var createRes = await userManager.CreateAsync(adminUser, password);
-                if (!createRes.Succeeded)
-                    throw new InvalidOperationException("Cannot create Admin user: " +
-                        string.Join(" | ", createRes.Errors.Select(e => e.Description)));
+                var createResult = await userManager.CreateAsync(user, adminPassword);
+
+                if (!createResult.Succeeded)
+                    throw new Exception("Admin user creation failed: " +
+                        string.Join(", ", createResult.Errors.Select(e => e.Description)));
             }
             else
             {
-                // Səndə DB-də FullName NOT NULL ola bilər — ehtiyat üçün düzəldirik
-                if (string.IsNullOrWhiteSpace(adminUser.FullName))
-                {
-                    adminUser.FirstName = string.IsNullOrWhiteSpace(adminUser.FirstName) ? opt.FirstName : adminUser.FirstName;
-                    adminUser.LastName = string.IsNullOrWhiteSpace(adminUser.LastName) ? opt.LastName : adminUser.LastName;
-                    adminUser.FullName = $"{adminUser.FirstName} {adminUser.LastName}".Trim();
+                // ===== 3. PASSWORD SYNC (kritik hissə) =====
+                var hasPassword = await userManager.HasPasswordAsync(user);
 
-                    await userManager.UpdateAsync(adminUser);
+                if (!hasPassword)
+                {
+                    var removeToken = await userManager.GeneratePasswordResetTokenAsync(user);
+                    var resetResult = await userManager.ResetPasswordAsync(user, removeToken, adminPassword);
+
+                    if (!resetResult.Succeeded)
+                        throw new Exception("Admin password reset failed: " +
+                            string.Join(", ", resetResult.Errors.Select(e => e.Description)));
                 }
+
+                // Optional: force password sync (hər startup eyni password istəyirsə)
+                // (istəsən açarsan)
             }
 
-            // 3) Admin rolunu ver (yoxdursa)
-            if (!await userManager.IsInRoleAsync(adminUser, adminRole))
-            {
-                var addRoleRes = await userManager.AddToRoleAsync(adminUser, adminRole);
+            // ===== 4. LOCKOUT FIX =====
+            await userManager.SetLockoutEndDateAsync(user, null);
+            await userManager.ResetAccessFailedCountAsync(user);
+            await userManager.SetLockoutEnabledAsync(user, false);
 
-                if (!addRoleRes.Succeeded)
-                    throw new InvalidOperationException("Cannot assign Admin role: " +
-                        string.Join(" | ", addRoleRes.Errors.Select(e => e.Description)));
+            // ===== 5. ROLE ASSIGN =====
+            if (!await userManager.IsInRoleAsync(user, adminRole))
+            {
+                var roleResult = await userManager.AddToRoleAsync(user, adminRole);
+
+                if (!roleResult.Succeeded)
+                    throw new Exception("Assigning admin role failed: " +
+                        string.Join(", ", roleResult.Errors.Select(e => e.Description)));
             }
         }
+
     }
 }
