@@ -97,22 +97,30 @@ builder.Services.Configure<RetentionOptions>(
 
 builder.Services.AddHostedService<Risen.Web.Services.RetentionService>();
 
-
 var allowedOrigins = builder.Configuration
     .GetSection("AllowedOrigins")
-    .Get<string[]>() ?? Array.Empty<string>();
+    .Get<string[]>();
 
 builder.Services.AddCors(opt =>
 {
-    opt.AddDefaultPolicy(p =>
+    opt.AddPolicy("CorsPolicy", p =>
     {
-        p.WithOrigins(allowedOrigins)
-         .AllowAnyMethod()
-         .AllowAnyHeader()
-         .AllowCredentials();
+        if (allowedOrigins != null && allowedOrigins.Length > 0)
+        {
+            p.WithOrigins(allowedOrigins)
+             .AllowAnyHeader()
+             .AllowAnyMethod()
+             .AllowCredentials();
+        }
+        else
+        {
+            p.SetIsOriginAllowed(_ => true)
+             .AllowAnyHeader()
+             .AllowAnyMethod()
+             .AllowCredentials();
+        }
     });
 });
-
 
 builder.Services.AddScoped<IEntitlementService, EntitlementService>();
 builder.Services.AddScoped<IQuestEntitlementService, QuestEntitlementService>();
@@ -177,7 +185,7 @@ app.UseMiddleware<ExceptionMiddleware>();
 
 app.UseHttpsRedirection();
 
-app.UseCors();
+app.UseCors("CorsPolicy");
 
 app.UseAuthentication();
 app.UseMiddleware<LastOnlineMiddleware>();
