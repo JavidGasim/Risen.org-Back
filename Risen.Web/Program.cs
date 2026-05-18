@@ -156,6 +156,12 @@ builder.Services.AddSwaggerGen();
 
 builder.Services.AddSignalR();
 
+var port = Environment.GetEnvironmentVariable("PORT");
+
+if (!string.IsNullOrEmpty(port))
+{
+    builder.WebHost.UseUrls($"http://*:{port}");
+}
 
 var app = builder.Build();
 
