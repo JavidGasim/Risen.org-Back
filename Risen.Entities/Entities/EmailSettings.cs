@@ -8,6 +8,7 @@ namespace Risen.Entities.Entities
 {
     public class EmailSettings
     {
+        public bool Enabled { get; set; }
         public string Host { get; set; }
         public int Port { get; set; }
         public string Email { get; set; }

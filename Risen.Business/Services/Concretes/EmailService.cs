@@ -26,6 +26,14 @@ namespace Risen.Business.Services.Concretes
 
         public async Task SendAsync(string to, string subject, string body, CancellationToken ct = default)
         {
+            if (!_settings.Enabled)
+            {
+                // SMTP deaktivdir — sadəcə skip et
+                Console.WriteLine("SMTP DISABLED - email skipped");
+                return;
+            }
+
+
             using var client = new SmtpClient(_settings.Host, _settings.Port)
             {
                 Credentials = new NetworkCredential(_settings.Email, _settings.Password),
