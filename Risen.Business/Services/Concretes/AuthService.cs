@@ -11,6 +11,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace Risen.Business.Services.Concretes
 {
@@ -239,71 +240,95 @@ namespace Risen.Business.Services.Concretes
             if (exists is not null)
                 throw new BadRequestException("This email already exists.");
 
-            var code = new Random().Next(100000, 999999).ToString();
 
-            var body = $@"
-<div style='margin:0; padding:0; background:#0f172a; font-family:Segoe UI, Arial, sans-serif;'>
+            var r = req;
 
-    <div style='max-width:520px; margin:40px auto; background:#111827; 
-                border-radius:16px; padding:40px 30px; 
-                box-shadow:0 20px 40px rgba(0,0,0,0.6); text-align:center;'>
+            var uniId = await _universityService.UpsertAndGetIdAsync(r.UniversityName, ct);
 
-        <!-- Logo / Title -->
-        <h1 style='color:#a78bfa; margin-bottom:10px; letter-spacing:1px;'>
-            RISEN
-        </h1>
-
-        <p style='color:#9ca3af; font-size:14px; margin-bottom:30px;'>
-            Verify your account
-        </p>
-
-        <!-- OTP Box -->
-        <div style='background: linear-gradient(135deg,#6366f1,#8b5cf6);
-                    padding:18px 0; border-radius:12px; margin-bottom:25px;'>
-
-            <span style='font-size:32px; color:white; 
-                         letter-spacing:8px; font-weight:bold;'>
-                {code}
-            </span>
-        </div>
-
-        <!-- Message -->
-        <p style='color:#d1d5db; font-size:15px; line-height:1.6;'>
-            Use this verification code to complete your registration.
-        </p>
-
-        <p style='color:#6b7280; font-size:12px; margin-top:20px;'>
-            This code will expire in 60 seconds.
-        </p>
-
-        <!-- Divider -->
-        <div style='margin:30px 0; height:1px; background:#1f2937;'></div>
-
-        <!-- Footer -->
-        <p style='color:#6b7280; font-size:12px;'>
-            © 2026 Risen. All rights reserved.
-        </p>
-
-    </div>
-
-</div>
-";
-
-            OtpStore.Data[email] = (req, code, DateTime.UtcNow.AddMinutes(5));
-
-            try
+            var user = new CustomIdentityUser
             {
-                await _emailService.SendAsync(
-                    email,
-                    "Verification Code",
-                    body
-                );
-            }
-            catch (Exception ex)
-            {
-                // 🔥 BURANI LOG ET
-                throw new Exception("EMAIL SERVICE FAILED: " + ex.Message);
-            }
+                Id = Guid.NewGuid(),
+                Email = email,
+                UserName = email,
+                FirstName = r.FirstName,
+                LastName = r.LastName,
+                FullName = $"{r.FirstName} {r.LastName}".Trim(),
+                UniversityId = uniId,
+                EmailConfirmed = true
+            };
+
+            var result = await _userManager.CreateAsync(user, r.Password);
+            if (!result.Succeeded)
+                throw new InvalidOperationException(string.Join(" | ", result.Errors.Select(e => e.Description)));
+
+            await AddDefaultData(user, ct);
+
+            OtpStore.Data.Remove(email);
+            //            var code = new Random().Next(100000, 999999).ToString();
+
+            //            var body = $@"
+            //<div style='margin:0; padding:0; background:#0f172a; font-family:Segoe UI, Arial, sans-serif;'>
+
+            //    <div style='max-width:520px; margin:40px auto; background:#111827; 
+            //                border-radius:16px; padding:40px 30px; 
+            //                box-shadow:0 20px 40px rgba(0,0,0,0.6); text-align:center;'>
+
+            //        <!-- Logo / Title -->
+            //        <h1 style='color:#a78bfa; margin-bottom:10px; letter-spacing:1px;'>
+            //            RISEN
+            //        </h1>
+
+            //        <p style='color:#9ca3af; font-size:14px; margin-bottom:30px;'>
+            //            Verify your account
+            //        </p>
+
+            //        <!-- OTP Box -->
+            //        <div style='background: linear-gradient(135deg,#6366f1,#8b5cf6);
+            //                    padding:18px 0; border-radius:12px; margin-bottom:25px;'>
+
+            //            <span style='font-size:32px; color:white; 
+            //                         letter-spacing:8px; font-weight:bold;'>
+            //                {code}
+            //            </span>
+            //        </div>
+
+            //        <!-- Message -->
+            //        <p style='color:#d1d5db; font-size:15px; line-height:1.6;'>
+            //            Use this verification code to complete your registration.
+            //        </p>
+
+            //        <p style='color:#6b7280; font-size:12px; margin-top:20px;'>
+            //            This code will expire in 60 seconds.
+            //        </p>
+
+            //        <!-- Divider -->
+            //        <div style='margin:30px 0; height:1px; background:#1f2937;'></div>
+
+            //        <!-- Footer -->
+            //        <p style='color:#6b7280; font-size:12px;'>
+            //            © 2026 Risen. All rights reserved.
+            //        </p>
+
+            //    </div>
+
+            //</div>
+            //";
+
+            //            OtpStore.Data[email] = (req, code, DateTime.UtcNow.AddMinutes(5));
+
+            //            try
+            //            {
+            //                await _emailService.SendAsync(
+            //                    email,
+            //                    "Verification Code",
+            //                    body
+            //                );
+            //            }
+            //            catch (Exception ex)
+            //            {
+            //                // 🔥 BURANI LOG ET
+            //                throw new Exception("EMAIL SERVICE FAILED: " + ex.Message);
+            //            }
         }
 
         public async Task<AuthResponse> LoginAsync(LoginRequest req, CancellationToken ct)
