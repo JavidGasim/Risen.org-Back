@@ -371,6 +371,9 @@ RequiresTwoFactor: {result.RequiresTwoFactor}
 
 ========================
 ");
+            if (result.Succeeded)
+            {
+                
 
             //var roles = await _userManager.GetRolesAsync(user);
             var (isPremium, plan) = await _entitlementService.GetUserEntitlementAsync(user.Id, ct);
@@ -416,6 +419,14 @@ RequiresTwoFactor: {result.RequiresTwoFactor}
             await _db.SaveChangesAsync(ct);
 
             return new AuthResponse(access, rt.Plain, plan, isPremium);
+            }
+
+            if (result.IsLockedOut)
+                throw new Exception("USER_LOCKED_OUT");
+            else
+            {
+                throw new Exception("INVALID_CREDENTIALS");
+            }
         }
 
         public async Task<AuthResponse> RefreshAsync(RefreshRequest req, CancellationToken ct)
