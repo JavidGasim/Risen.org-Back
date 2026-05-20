@@ -68,6 +68,13 @@ namespace Risen.Web.Controllers
                 if (!ir.Succeeded) return BadRequest("Could not create role.");
             }
 
+            var currentRoles = await _users.GetRolesAsync(user);
+
+            if (currentRoles.Any())
+            {
+                await _users.RemoveFromRolesAsync(user, currentRoles);
+            }
+
             var res = await _users.AddToRoleAsync(user, role);
             if (!res.Succeeded) return BadRequest(res.Errors);
             try
