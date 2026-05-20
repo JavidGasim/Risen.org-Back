@@ -151,9 +151,22 @@ namespace Risen.Business.Services.Concretes
                     gainedThisSubmit += streakXp.FinalXp;
 
                     var yesterday = today.AddDays(-1);
-                    stats.CurrentStreak = (stats.LastStreakDateUtc == yesterday)
-                        ? stats.CurrentStreak + 1
-                        : 1;
+
+                    if (stats.LastStreakDateUtc == null)
+                    {
+                        // first day does not count as streak yet
+                        stats.CurrentStreak = 0;
+                    }
+                    else if (stats.LastStreakDateUtc == yesterday)
+                    {
+                        // consecutive login/activity day
+                        stats.CurrentStreak += 1;
+                    }
+                    else
+                    {
+                        // missed a day -> reset
+                        stats.CurrentStreak = 0;
+                    }
 
                     if (stats.CurrentStreak > stats.LongestStreak)
                         stats.LongestStreak = stats.CurrentStreak;
