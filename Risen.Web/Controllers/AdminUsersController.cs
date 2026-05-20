@@ -84,7 +84,11 @@ namespace Risen.Web.Controllers
                 });
                 await _db.SaveChangesAsync(ct);
 
-                await _hub.Clients.User(user.Id.ToString()).SendAsync("Role Changed", role, cancellationToken: ct);
+                await _hub.Clients.All.SendAsync("UserRoleUpdated", new
+                {
+                    UserId = user.Id,
+                    Role = role
+                });
 
                 _logger.LogInformation("Admin {AdminId} added role {Role} to user {UserId}", adminId, role, user.Id);
 
