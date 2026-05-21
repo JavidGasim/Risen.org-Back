@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
+using Risen.Business.Services.Abstracts;
 using Risen.DataAccess.Data;
 using Risen.Entities.Entities;
 using Risen.Web.Hubs;
@@ -20,15 +21,17 @@ namespace Risen.Web.Controllers
         private readonly RoleManager<CustomIdentityRole> _roles;
         private readonly ILogger<AdminUsersController> _logger;
         private readonly IHubContext<NotificationHub> _hub;
+        private readonly ITokenService _tokenService;
 
 
-        public AdminUsersController(AppDbContext db, UserManager<CustomIdentityUser> users, RoleManager<CustomIdentityRole> roles, ILogger<AdminUsersController> logger, IHubContext<NotificationHub> hub)
+        public AdminUsersController(AppDbContext db, UserManager<CustomIdentityUser> users, RoleManager<CustomIdentityRole> roles, ILogger<AdminUsersController> logger, IHubContext<NotificationHub> hub, ITokenService tokenService)
         {
             _db = db;
             _users = users;
             _roles = roles;
             _logger = logger;
             _hub = hub;
+            _tokenService = tokenService;
         }
         private Guid GetAdminId()
         {
@@ -84,7 +87,24 @@ namespace Risen.Web.Controllers
                 });
                 await _db.SaveChangesAsync(ct);
 
-                await _hub.Clients.User(user.Id.ToString()).SendAsync("Role Changed", role, cancellationToken: ct);
+                var newRoles = await _users.GetRolesAsync(user);
+
+                // NEW TOKEN GENERATE ET
+                var newToken = _tokenService.CreateAccessToken(
+                    user,
+                    newRoles,
+                    isPremium: false,
+                    plan: "Free"
+                );
+
+
+                await _hub.Clients.User(user.Id.ToString())
+     .SendAsync("RoleChanged", new
+     {
+         role,
+         userId = user.Id,
+         token = newToken
+     }, cancellationToken: ct);
 
                 _logger.LogInformation("Admin {AdminId} added role {Role} to user {UserId}", adminId, role, user.Id);
 
@@ -98,6 +118,8 @@ namespace Risen.Web.Controllers
         {
             var user = await _users.FindByIdAsync(id.ToString());
             if (user is null) return NotFound();
+
+
 
             var res = await _users.RemoveFromRoleAsync(user, role);
             if (!res.Succeeded) return BadRequest(res.Errors);
@@ -115,7 +137,22 @@ namespace Risen.Web.Controllers
                 });
                 await _db.SaveChangesAsync(ct);
 
-                await _hub.Clients.User(user.Id.ToString()).SendAsync("Role Changed", role, cancellationToken: ct);
+                var newRoles = await _users.GetRolesAsync(user);
+
+                var newToken = _tokenService.CreateAccessToken(
+                    user,
+                    newRoles,
+                    isPremium: false,
+                    plan: "Free"
+                );
+
+                await _hub.Clients.User(user.Id.ToString())
+                    .SendAsync("RoleChanged", new
+                    {
+                        role,
+                        userId = user.Id,
+                        token = newToken
+                    }, cancellationToken: ct);
 
                 _logger.LogInformation("Admin {AdminId} removed role {Role} from user {UserId}", adminId, role, user.Id);
             }
