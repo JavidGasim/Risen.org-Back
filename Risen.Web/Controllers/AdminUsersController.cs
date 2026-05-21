@@ -71,6 +71,13 @@ namespace Risen.Web.Controllers
                 if (!ir.Succeeded) return BadRequest("Could not create role.");
             }
 
+            var currentRoles = await _users.GetRolesAsync(user);
+
+            if (currentRoles.Any())
+            {
+                await _users.RemoveFromRolesAsync(user, currentRoles);
+            }
+
             var res = await _users.AddToRoleAsync(user, role);
             if (!res.Succeeded) return BadRequest(res.Errors);
             try
@@ -87,24 +94,7 @@ namespace Risen.Web.Controllers
                 });
                 await _db.SaveChangesAsync(ct);
 
-                var newRoles = await _users.GetRolesAsync(user);
-
-                // NEW TOKEN GENERATE ET
-                var newToken = _tokenService.CreateAccessToken(
-                    user,
-                    newRoles,
-                    isPremium: false,
-                    plan: "Free"
-                );
-
-
-                await _hub.Clients.User(user.Id.ToString())
-     .SendAsync("RoleChanged", new
-     {
-         role,
-         userId = user.Id,
-         token = newToken
-     }, cancellationToken: ct);
+                await _hub.Clients.User(user.Id.ToString()).SendAsync("Role Changed", role, cancellationToken: ct);
 
                 _logger.LogInformation("Admin {AdminId} added role {Role} to user {UserId}", adminId, role, user.Id);
 
