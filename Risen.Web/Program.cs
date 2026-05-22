@@ -197,6 +197,8 @@ app.UseMiddleware<LastOnlineMiddleware>();
 app.UseAuthorization();
 
 app.MapControllers();
+
+app.UseWebSockets();
 app.MapHub<NotificationHub>("/notificationHub");
 
 app.Run();
