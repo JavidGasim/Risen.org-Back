@@ -111,6 +111,7 @@ builder.Services.AddCors(opt =>
             p.WithOrigins(allowedOrigins)
              .AllowAnyHeader()
              .AllowAnyMethod()
+             .SetIsOriginAllowed(_ => true)
              .AllowCredentials();
         }
         else
@@ -118,6 +119,7 @@ builder.Services.AddCors(opt =>
             p.SetIsOriginAllowed(_ => true)
              .AllowAnyHeader()
              .AllowAnyMethod()
+             .SetIsOriginAllowed(_ => true)
              .AllowCredentials();
         }
     });
@@ -194,7 +196,7 @@ app.UseAuthentication();
 app.UseMiddleware<LastOnlineMiddleware>();
 app.UseAuthorization();
 
-app.MapHub<NotificationHub>("/notificationHub");
 app.MapControllers();
+app.MapHub<NotificationHub>("/notificationHub");
 
 app.Run();
