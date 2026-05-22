@@ -103,19 +103,27 @@ namespace Risen.Web.Controllers
                     plan: "Free"
                 );
 
-                await _hub.Clients.User(user.Id.ToString())
-                    .SendAsync("RoleChanged", new
-                    {
-                        role,
-                        userId = user.Id,
-                        token = newToken
-                    }, cancellationToken: ct);
-
-
-                _logger.LogInformation("Admin {AdminId} added role {Role} to user {UserId}", adminId, role, user.Id);
+                try
+                {
+                    await _hub.Clients.User(user.Id.ToString())
+                        .SendAsync("RoleChanged", new
+                        {
+                            role,
+                            userId = user.Id,
+                            token = newToken
+                        }, cancellationToken: ct);
+                    await _hub.Clients.All.SendAsync("UsersUpdated");
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "SignalR failed");
+                }
 
             }
-            catch { }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Role change failed for user {UserId}", user.Id);
+            }
             return NoContent();
         }
 
