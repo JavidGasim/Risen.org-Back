@@ -1,4 +1,5 @@
 ﻿using Risen.Contracts.Stats;
+using Risen.Entities.Entities;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -11,5 +12,6 @@ namespace Risen.Business.Services.Abstracts
     {
         Task<MeStatsDto> GetMeAsync(Guid userId, CancellationToken ct);
         Task<Risen.Entities.Entities.UserStats> EnsureStatsAsync(Guid userId, CancellationToken ct);
+        Task UpdateStreakAsync(UserStats stats, DateTime today, CancellationToken ct);
     }
 }

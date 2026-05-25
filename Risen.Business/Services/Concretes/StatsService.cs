@@ -3,6 +3,7 @@ using Risen.Business.Exceptions;
 using Risen.Business.Services.Abstracts;
 using Risen.Contracts.Stats;
 using Risen.DataAccess.Data;
+using Risen.Entities.Entities;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -122,6 +123,32 @@ namespace Risen.Business.Services.Concretes
        IsPremium: isPremium
    );
 
+        }
+
+        public Task UpdateStreakAsync(UserStats stats, DateTime today, CancellationToken ct)
+        {
+            var yesterday = today.AddDays(-1);
+
+            if (stats.LastStreakDateUtc == null)
+            {
+                stats.CurrentStreak = 1;
+            }
+            else if (stats.LastStreakDateUtc.Value.Date == yesterday)
+            {
+                stats.CurrentStreak += 1;
+            }
+            else
+            {
+                stats.CurrentStreak = 1;
+            }
+
+            if (stats.CurrentStreak > stats.LongestStreak)
+                stats.LongestStreak = stats.CurrentStreak;
+
+            stats.LastStreakDateUtc = today;
+            stats.UpdatedAtUtc = DateTime.UtcNow;
+
+            return Task.CompletedTask;
         }
     }
 }

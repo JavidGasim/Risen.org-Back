@@ -49,10 +49,8 @@ namespace Risen.Business.Services.Concretes
 
             await using var tx = await _db.Database.BeginTransactionAsync(ct);
 
-            // policy
             var (isPremium, _, dailyLimit, advancedAllowed) = await _ent.GetQuestPolicyAsync(userId, ct);
 
-            // quest fetch + policy enforcement
             var questQuery = _db.Quests
                 .Include(x => x.Options)
                 .Where(x => x.Id == req.QuestId && x.IsActive);
@@ -73,7 +71,6 @@ namespace Risen.Business.Services.Concretes
             if (quest is null)
                 throw new NotFoundException("Quest not found or not accessible.");
 
-            // 5 option enforcement
             if (quest.Options is null || quest.Options.Count != 5)
                 throw new BadRequestException("Quest must have exactly 5 options.");
 
@@ -86,7 +83,6 @@ namespace Risen.Business.Services.Concretes
 
             var isCorrect = req.SelectedIndex == quest.CorrectOptionIndex;
 
-            // daily limit: yalnız CompletedDateUtc olanlar sayılır
             var completedTodayCount = await _db.QuestAttempts.AsNoTracking()
                 .CountAsync(a => a.UserId == userId
                               && a.CompletedDateUtc != null
@@ -95,13 +91,11 @@ namespace Risen.Business.Services.Concretes
 
             var limitReached = completedTodayCount >= dailyLimit;
 
-            // has the user ever completed this quest?
             var alreadyCompletedEver = await _db.QuestAttempts.AsNoTracking()
                 .AnyAsync(a => a.UserId == userId
                             && a.QuestId == req.QuestId
                             && a.CompletedDateUtc != null, ct);
 
-            // difficulty multiplier (server-side)
             var multiplier = quest.Difficulty switch
             {
                 QuestDifficulty.Advanced => _opt.AdvancedMultiplier,
@@ -109,17 +103,16 @@ namespace Risen.Business.Services.Concretes
                 _ => _opt.NormalMultiplier
             };
 
-            // XP yalnız: correct + limitReached deyil + bu quest bu gün tamamlanmayıb
+            var stats = await _statsService.EnsureStatsAsync(userId, ct);
+
             AwardXpResponse? lastXpRes = null;
             var gainedThisSubmit = 0;
 
-            // Stats (streak üçün lazımdır)
-            var stats = await _statsService.EnsureStatsAsync(userId, ct);
-
+            // ✅ QUEST XP
             if (!limitReached && isCorrect && !alreadyCompletedEver)
             {
-                // 1) Quest XP (idempotent SourceKey)
                 var questSourceKey = $"Quest:{quest.Id}:date:{today:yyyyMMdd}";
+
                 var questXp = await _xp.AwardAsync(
                     userId,
                     new AwardXpRequest(
@@ -133,10 +126,11 @@ namespace Risen.Business.Services.Concretes
                 lastXpRes = questXp;
                 gainedThisSubmit += questXp.FinalXp;
 
-                // 2) Streak bonus (gündə 1 dəfə)
+                // ✅ STREAK bonus XP (ONLY XP part qalır)
                 if (stats.LastStreakDateUtc != today)
                 {
                     var streakSourceKey = $"Streak:{today:yyyyMMdd}";
+
                     var streakXp = await _xp.AwardAsync(
                         userId,
                         new AwardXpRequest(
@@ -147,81 +141,33 @@ namespace Risen.Business.Services.Concretes
                         ),
                         ct);
 
-                    lastXpRes = streakXp;
                     gainedThisSubmit += streakXp.FinalXp;
 
-                    var yesterday = today.AddDays(-1);
-
-                    if (stats.LastStreakDateUtc == null)
-                    {
-                        // first day does not count as streak yet
-                        stats.CurrentStreak = 0;
-                    }
-                    else if (stats.LastStreakDateUtc == yesterday)
-                    {
-                        // consecutive login/activity day
-                        stats.CurrentStreak += 1;
-                    }
-                    else
-                    {
-                        // missed a day -> reset
-                        stats.CurrentStreak = 0;
-                    }
-
-                    if (stats.CurrentStreak > stats.LongestStreak)
-                        stats.LongestStreak = stats.CurrentStreak;
-
-                    stats.LastStreakDateUtc = today;
-                    stats.UpdatedAtUtc = DateTime.UtcNow;
-                    // Recalculate RisenScore after streak update
-                    var tierWeight = await _db.LeagueTiers.AsNoTracking()
-                        .Where(t => t.Id == stats.CurrentLeagueTierId)
-                        .Select(t => t.Weight)
-                        .FirstAsync(ct);
-
-                    stats.RisenScore = Risen.Business.Utils.RisenScoreCalculator.Calculate(
-                        tierWeight,
-                        stats.TotalXp,
-                        stats.CurrentStreak
-                    );
+                    // 🔥 ONLY update streak via StatsService
+                    await _statsService.UpdateStreakAsync(stats, today, ct);
                 }
             }
 
-            // CompletedDateUtc: record the calendar-day of the attempt when it should count toward
-            // the daily limit. Previously this was only set for correct answers; change behavior
-            // so that the first qualifying attempt (within limits and not already completed ever)
-            // records CompletedDateUtc even if the answer is incorrect.
-            // If the quest was already completed ever, do not record a new completion.
-            DateTime? completedDateUtc = (!limitReached && !alreadyCompletedEver)
-                ? now
-                : null;
+            DateTime? completedDateUtc = (!limitReached && !alreadyCompletedEver) ? now : null;
 
-            // attempt həmişə yazılır (wrong attempt də log olur)
             var attempt = new QuestAttempt
             {
                 Id = Guid.NewGuid(),
                 QuestId = req.QuestId,
                 UserId = userId,
-
                 SelectedOptionId = selectedOption.Id,
                 IsCorrect = isCorrect,
                 AwardedXp = gainedThisSubmit,
-
                 CompletedAtUtc = now,
                 CompletedDateUtc = completedDateUtc
             };
 
-            // If the quest was already completed ever, do not insert a new "completed" attempt;
-            // still log the attempt (incorrect tries) only if it wasn't already completed ever.
             if (!alreadyCompletedEver)
-            {
                 _db.QuestAttempts.Add(attempt);
-            }
 
             await _db.SaveChangesAsync(ct);
             await tx.CommitAsync(ct);
 
-            // TotalXp + League (XP verilməyibsə də normal qaytar)
             long totalXp;
             string league;
 
@@ -232,7 +178,6 @@ namespace Risen.Business.Services.Concretes
             }
             else
             {
-                // heç XP verilmədisə: hazır stats-dan oxu
                 totalXp = stats.TotalXp;
                 league = await _db.LeagueTiers.AsNoTracking()
                     .Where(t => t.Id == stats.CurrentLeagueTierId)
@@ -250,8 +195,6 @@ namespace Risen.Business.Services.Concretes
                 LongestStreak: stats.LongestStreak
             );
         }
-
-
 
     }
 }

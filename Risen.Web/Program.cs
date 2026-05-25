@@ -169,6 +169,8 @@ builder.Services.Configure<EmailSettings>(
 
 builder.Services.AddScoped<IEmailService, EmailService>();
 
+builder.Services.AddHostedService<StreakResetService>();
+
 builder.Services.AddMemoryCache();
 
 // Admin audit service
