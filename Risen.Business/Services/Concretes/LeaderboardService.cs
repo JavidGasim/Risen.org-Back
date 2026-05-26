@@ -112,6 +112,53 @@ namespace Risen.Business.Services.Concretes
             public string? UniversityName { get; set; }
         }
 
+        private sealed class SubjectRow
+        {
+            public Guid UserId { get; set; }
+            public string DisplayName { get; set; } = default!;
+            public long SubjectXp { get; set; }
+        }
+
+        public async Task<LeaderboardResponse> GetSubjectAsync(string subjectCode, int limit, int offset, CancellationToken ct)
+        {
+            limit = Math.Clamp(limit, 1, 100);
+            offset = Math.Max(0, offset);
+
+            // Rank users by total XP earned on quests for a specific subject
+            var q = from a in _db.QuestAttempts.AsNoTracking()
+                    where a.CompletedDateUtc != null  // only count completions
+                    join quest in _db.Quests.AsNoTracking() on a.QuestId equals quest.Id
+                    where quest.SubjectCode == subjectCode
+                    join u in _db.Users.AsNoTracking() on a.UserId equals u.Id
+                    group new { a.UserId, u.FullName, a.AwardedXp } by new { a.UserId, u.FullName } into g
+                    select new SubjectRow
+                    {
+                        UserId = g.Key.UserId,
+                        DisplayName = g.Key.FullName,
+                        SubjectXp = g.Sum(x => x.AwardedXp)
+                    };
+
+            var total = await q.CountAsync(ct);
+
+            var page = await q
+                .OrderByDescending(x => x.SubjectXp)
+                .ThenBy(x => x.UserId)
+                .Skip(offset)
+                .Take(limit)
+                .ToListAsync(ct);
+
+            var items = page.Select((x, i) => new LeaderboardEntryDto(
+                Rank: offset + i + 1,
+                UserId: x.UserId,
+                DisplayName: x.DisplayName,
+                TotalXp: x.SubjectXp,
+                League: null,
+                UniversityName: null
+            )).ToList();
+
+            return new LeaderboardResponse(limit, offset, items, total);
+        }
+
         public async Task<int> GetUserRankAsync(Guid userId, Guid? universityId, CancellationToken ct)
         {
             // get user's total xp

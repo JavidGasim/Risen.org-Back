@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Risen.Business.Services.Abstracts;
@@ -152,6 +153,21 @@ namespace Risen.Web.Controllers
 
             _logger.LogInformation("Fetching league leaderboard for user {UserId}, league {League}, limit {Limit}, offset {Offset}", userId, leagueCode, limit, offset);
             return Ok(await _svc.GetGlobalAsync(leagueCode, limit, offset, ct));
+        }
+
+        // GET /api/leaderboards/subject/{subjectCode}?limit=50&offset=0
+        [HttpGet("subject/{subjectCode}")]
+        public async Task<ActionResult<LeaderboardResponse>> Subject(
+            string subjectCode,
+            [FromQuery] int limit = 50,
+            [FromQuery] int offset = 0,
+            CancellationToken ct = default)
+        {
+            if (string.IsNullOrWhiteSpace(subjectCode))
+                return BadRequest("Subject code is required.");
+
+            _logger.LogInformation("Fetching subject leaderboard for subject {SubjectCode}, limit {Limit}, offset {Offset}", subjectCode, limit, offset);
+            return Ok(await _svc.GetSubjectAsync(subjectCode, limit, offset, ct));
         }
 
         private static LeagueCode? ParseLeague(string? league)
