@@ -9,13 +9,14 @@ namespace Risen.Business.Options
     public class QuestPolicyOptions
     {
         public int FreeDailyQuestLimit { get; set; } = 10;
-        public int PremiumDailyQuestLimit { get; set; } = 1000;
+        public int PremiumDailyQuestLimit { get; set; } = 100;
+        public int LifetimeDailyQuestLimit { get; set; } = 1000;
 
         public decimal NormalMultiplier { get; set; } = 1.0m;
         public decimal IntermediateMultiplier { get; set; } = 1.3m;
         public decimal AdvancedMultiplier { get; set; } = 1.5m;
 
-        public int StreakBonusXp { get; set; } = 5; // <-- NEW
+        public int StreakBonusXp { get; set; } = 5;
 
     }
 }

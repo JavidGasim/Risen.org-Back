@@ -78,5 +78,132 @@ namespace Risen.Web.Controllers
             await _db.SaveChangesAsync(ct);
             return NoContent();
         }
+
+        // ==================== ENTITLEMENTS ====================
+
+        // GET /api/admin/plans/{planId:guid}/entitlements
+        [HttpGet("{planId:guid}/entitlements")]
+        public async Task<ActionResult> ListEntitlements(Guid planId, CancellationToken ct)
+        {
+            var plan = await _db.Plans.FindAsync(new object[] { planId }, ct);
+            if (plan is null) return NotFound("Plan not found.");
+
+            var entitlements = await _db.PlanEntitlements
+                .AsNoTracking()
+                .Where(e => e.PlanId == planId)
+                .OrderBy(e => e.EntitlementKey)
+                .Select(e => new AdminPlanEntitlementDto(
+                    e.Id,
+                    e.PlanId,
+                    e.EntitlementKey,
+                    e.EntitlementValue,
+                    e.Description,
+                    e.CreatedAtUtc,
+                    e.UpdatedAtUtc
+                ))
+                .ToListAsync(ct);
+
+            return Ok(entitlements);
+        }
+
+        // POST /api/admin/plans/{planId:guid}/entitlements
+        [HttpPost("{planId:guid}/entitlements")]
+        public async Task<ActionResult> CreateEntitlement(Guid planId, [FromBody] AdminPlanEntitlementRequest req, CancellationToken ct)
+        {
+            var plan = await _db.Plans.FindAsync(new object[] { planId }, ct);
+            if (plan is null) return NotFound("Plan not found.");
+
+            if (string.IsNullOrWhiteSpace(req.EntitlementKey))
+                return BadRequest("EntitlementKey is required.");
+
+            if (string.IsNullOrWhiteSpace(req.EntitlementValue))
+                return BadRequest("EntitlementValue is required.");
+
+            // Check if entitlement key already exists for this plan
+            var exists = await _db.PlanEntitlements
+                .AnyAsync(e => e.PlanId == planId && e.EntitlementKey == req.EntitlementKey, ct);
+            if (exists)
+                return Conflict("Entitlement with this key already exists for this plan.");
+
+            var entitlement = new PlanEntitlement
+            {
+                Id = Guid.NewGuid(),
+                PlanId = planId,
+                EntitlementKey = req.EntitlementKey,
+                EntitlementValue = req.EntitlementValue,
+                Description = req.Description,
+                CreatedAtUtc = DateTime.UtcNow,
+                UpdatedAtUtc = DateTime.UtcNow
+            };
+
+            _db.PlanEntitlements.Add(entitlement);
+            await _db.SaveChangesAsync(ct);
+
+            _logger.LogInformation("Admin created entitlement {Key} for plan {PlanId}", req.EntitlementKey, planId);
+
+            return CreatedAtAction(nameof(GetEntitlement), new { planId, id = entitlement.Id }, new AdminPlanEntitlementDto(
+                entitlement.Id,
+                entitlement.PlanId,
+                entitlement.EntitlementKey,
+                entitlement.EntitlementValue,
+                entitlement.Description,
+                entitlement.CreatedAtUtc,
+                entitlement.UpdatedAtUtc
+            ));
+        }
+
+        // GET /api/admin/plans/{planId:guid}/entitlements/{id:guid}
+        [HttpGet("{planId:guid}/entitlements/{id:guid}")]
+        public async Task<ActionResult> GetEntitlement(Guid planId, Guid id, CancellationToken ct)
+        {
+            var entitlement = await _db.PlanEntitlements.FirstOrDefaultAsync(e => e.Id == id && e.PlanId == planId, ct);
+            if (entitlement is null) return NotFound();
+
+            return Ok(new AdminPlanEntitlementDto(
+                entitlement.Id,
+                entitlement.PlanId,
+                entitlement.EntitlementKey,
+                entitlement.EntitlementValue,
+                entitlement.Description,
+                entitlement.CreatedAtUtc,
+                entitlement.UpdatedAtUtc
+            ));
+        }
+
+        // PUT /api/admin/plans/{planId:guid}/entitlements/{id:guid}
+        [HttpPut("{planId:guid}/entitlements/{id:guid}")]
+        public async Task<IActionResult> UpdateEntitlement(Guid planId, Guid id, [FromBody] AdminPlanEntitlementRequest req, CancellationToken ct)
+        {
+            var entitlement = await _db.PlanEntitlements.FirstOrDefaultAsync(e => e.Id == id && e.PlanId == planId, ct);
+            if (entitlement is null) return NotFound();
+
+            if (string.IsNullOrWhiteSpace(req.EntitlementValue))
+                return BadRequest("EntitlementValue is required.");
+
+            entitlement.EntitlementValue = req.EntitlementValue;
+            entitlement.Description = req.Description;
+            entitlement.UpdatedAtUtc = DateTime.UtcNow;
+
+            await _db.SaveChangesAsync(ct);
+
+            _logger.LogInformation("Admin updated entitlement {Key} for plan {PlanId}", entitlement.EntitlementKey, planId);
+
+            return NoContent();
+        }
+
+        // DELETE /api/admin/plans/{planId:guid}/entitlements/{id:guid}
+        [HttpDelete("{planId:guid}/entitlements/{id:guid}")]
+        public async Task<IActionResult> DeleteEntitlement(Guid planId, Guid id, CancellationToken ct)
+        {
+            var entitlement = await _db.PlanEntitlements.FirstOrDefaultAsync(e => e.Id == id && e.PlanId == planId, ct);
+            if (entitlement is null) return NotFound();
+
+            _db.PlanEntitlements.Remove(entitlement);
+            await _db.SaveChangesAsync(ct);
+
+            _logger.LogInformation("Admin deleted entitlement {Key} for plan {PlanId}", entitlement.EntitlementKey, planId);
+
+            return NoContent();
+        }
     }
 }

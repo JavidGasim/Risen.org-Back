@@ -18,6 +18,7 @@ namespace Risen.DataAccess.Data
 
         public DbSet<Plan> Plans => Set<Plan>();
         public DbSet<UserSubscription> UserSubscriptions => Set<UserSubscription>();
+        public DbSet<PlanEntitlement> PlanEntitlements => Set<PlanEntitlement>();
         public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
         public DbSet<University> Universities => Set<University>();
         public DbSet<LeagueTier> LeagueTiers => Set<LeagueTier>();
@@ -63,6 +64,21 @@ namespace Risen.DataAccess.Data
                 e.HasKey(x => x.Id);
                 e.HasIndex(x => x.Code).IsUnique();
                 e.Property(x => x.Name).HasMaxLength(64).IsRequired();
+            });
+
+            builder.Entity<PlanEntitlement>(e =>
+            {
+                e.HasKey(x => x.Id);
+                e.HasOne(x => x.Plan)
+                 .WithMany()
+                 .HasForeignKey(x => x.PlanId)
+                 .OnDelete(DeleteBehavior.Cascade);
+
+                e.Property(x => x.EntitlementKey).HasMaxLength(64).IsRequired();
+                e.Property(x => x.EntitlementValue).HasMaxLength(256).IsRequired();
+                e.Property(x => x.Description).HasMaxLength(512);
+
+                e.HasIndex(x => new { x.PlanId, x.EntitlementKey }).IsUnique();
             });
 
             builder.Entity<UserSubscription>(e =>

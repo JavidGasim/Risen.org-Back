@@ -26,7 +26,13 @@ namespace Risen.Business.Services.Concretes
         {
             var (isPremium, plan) = await _entitlementService.GetUserEntitlementAsync(userId, ct);
 
-            var dailyLimit = isPremium ? _opt.PremiumDailyQuestLimit : _opt.FreeDailyQuestLimit;
+            var dailyLimit = plan switch
+            {
+                nameof(PlanCode.Premium) => _opt.PremiumDailyQuestLimit,
+                nameof(PlanCode.Lifetime) => _opt.LifetimeDailyQuestLimit,
+                _ => _opt.FreeDailyQuestLimit
+            };
+
             var advancedAllowed = isPremium;
 
             return (isPremium, plan, dailyLimit, advancedAllowed);
