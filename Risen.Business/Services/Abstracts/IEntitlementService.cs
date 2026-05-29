@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Risen.Entities.Entities;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -8,6 +9,6 @@ namespace Risen.Business.Services.Abstracts
 {
     public interface IEntitlementService
     {
-        Task<(bool IsPremium, string Plan)> GetUserEntitlementAsync(Guid userId, CancellationToken ct);
+        Task<(bool IsPremium, PlanCode Plan)> GetUserEntitlementAsync(Guid userId, CancellationToken ct);
     }
 }

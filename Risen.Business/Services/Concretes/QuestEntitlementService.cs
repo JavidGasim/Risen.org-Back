@@ -30,12 +30,12 @@ namespace Risen.Business.Services.Concretes
 
             // Get plan from database to get current settings
             var planEntity = await _db.Plans.AsNoTracking()
-                .FirstOrDefaultAsync(p => p.Code.ToString() == plan, ct);
+                .FirstOrDefaultAsync(p => p.Code == plan, ct);
 
             var dailyLimit = planEntity?.DailyQuestLimit ?? 10;  // Default to Free limit
             var advancedAllowed = planEntity?.AllowAdvancedQuests ?? false;
 
-            return (isPremium, plan, dailyLimit, advancedAllowed);
+            return (isPremium, plan.ToString(), dailyLimit, advancedAllowed);
         }
     }
 }

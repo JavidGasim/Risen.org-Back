@@ -213,7 +213,7 @@ namespace Risen.Business.Services.Concretes
             var roles = await _userManager.GetRolesAsync(user);
             var (isPremium, plan) = await _entitlementService.GetUserEntitlementAsync(user.Id, ct);
 
-            var access = _tokenService.CreateAccessToken(user, roles, isPremium, plan);
+            var access = _tokenService.CreateAccessToken(user, roles, isPremium, plan.ToString());
             var rt = _tokenService.CreateRefreshToken(30);
 
             _db.RefreshTokens.Add(new RefreshToken
@@ -229,7 +229,7 @@ namespace Risen.Business.Services.Concretes
             await _userManager.UpdateAsync(user);
             await _db.SaveChangesAsync(ct);
 
-            return new Risen.Contracts.Auth.AuthResponse(access, rt.Plain, plan, isPremium);
+            return new Risen.Contracts.Auth.AuthResponse(access, rt.Plain, plan.ToString(), isPremium);
         }
 
         public async Task RegisterAsync(RegisterRequest req, CancellationToken ct)
@@ -379,7 +379,7 @@ RequiresTwoFactor: {result.RequiresTwoFactor}
             var (isPremium, plan) = await _entitlementService.GetUserEntitlementAsync(user.Id, ct);
 
             Console.WriteLine(roles);
-            var access = _tokenService.CreateAccessToken(user, roles, isPremium, plan);
+            var access = _tokenService.CreateAccessToken(user, roles, isPremium, plan.ToString());
 
             var refreshDays = 30; // appsettings-dən də oxuya bilərsən
             var rt = _tokenService.CreateRefreshToken(refreshDays);
@@ -418,7 +418,7 @@ RequiresTwoFactor: {result.RequiresTwoFactor}
 
             await _db.SaveChangesAsync(ct);
 
-            return new AuthResponse(access, rt.Plain, plan, isPremium);
+            return new AuthResponse(access, rt.Plain, plan.ToString(), isPremium);
             }
 
             if (result.IsLockedOut)
@@ -444,7 +444,7 @@ RequiresTwoFactor: {result.RequiresTwoFactor}
             var roles = await _userManager.GetRolesAsync(user);
             var (isPremium, plan) = await _entitlementService.GetUserEntitlementAsync(user.Id, ct);
 
-            var access = _tokenService.CreateAccessToken(user, roles, isPremium, plan);
+            var access = _tokenService.CreateAccessToken(user, roles, isPremium, plan.ToString());
 
             // Rotate refresh token
             var rt = _tokenService.CreateRefreshToken(30);
@@ -465,7 +465,7 @@ RequiresTwoFactor: {result.RequiresTwoFactor}
 
             await _db.SaveChangesAsync(ct);
 
-            return new AuthResponse(access, rt.Plain, plan, isPremium);
+            return new AuthResponse(access, rt.Plain, plan.ToString()   , isPremium);
         }
 
         public async Task VerifyRegisterAsync(VerifyRegisterRequest req, CancellationToken ct)

@@ -16,7 +16,7 @@ namespace Risen.Business.Services.Concretes
 
         public EntitlementService(AppDbContext db) => _db = db;
 
-        public async Task<(bool IsPremium, string Plan)> GetUserEntitlementAsync(Guid userId, CancellationToken ct)
+        public async Task<(bool IsPremium, PlanCode Plan)> GetUserEntitlementAsync(Guid userId, CancellationToken ct)
         {
             var now = DateTime.UtcNow;
 
@@ -27,16 +27,16 @@ namespace Risen.Business.Services.Concretes
                 .FirstOrDefaultAsync(ct);
 
             if (sub is null)
-                return (false, PlanCode.Free.ToString());
+                return (false, PlanCode.Free);
 
             var stillValid = !sub.EndsAtUtc.HasValue || sub.EndsAtUtc.Value > now;
             if (!stillValid)
-                return (false, PlanCode.Free.ToString());
+                return (false, PlanCode.Free);
 
             var plan = sub.Plan.Code;
             var premium = plan is PlanCode.Premium or PlanCode.Lifetime;
 
-            return (premium, plan.ToString());
+            return (premium, plan);
         }
     }
 }

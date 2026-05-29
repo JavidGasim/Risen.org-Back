@@ -119,7 +119,7 @@ namespace Risen.Business.Services.Concretes
        CreatedAtUtc: row.CreatedAtUtc,
        LastOnlineAtUtc: row.LastOnlineAtUtc,
 
-       Plan: plan,
+       Plan: plan.ToString(),
        IsPremium: isPremium
    );
 
