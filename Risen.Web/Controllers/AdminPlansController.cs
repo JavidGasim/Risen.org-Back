@@ -44,10 +44,20 @@ namespace Risen.Web.Controllers
         public async Task<ActionResult> List(CancellationToken ct = default)
         {
             var items = await _db.Plans
-                .AsNoTracking()
-                .OrderBy(p => p.Name)
-                .Select(p => MapToDto(p))
-                .ToListAsync(ct);
+    .AsNoTracking()
+    .OrderBy(p => p.Name)
+    .Select(p => new AdminPlanDto(
+        p.Id,
+        p.Code.ToString(),
+        p.Name,
+        p.DailyQuestLimit,
+        p.AllowAdvancedQuests,
+        p.XpMultiplier,
+        p.Description,
+        p.CreatedAtUtc,
+        p.UpdatedAtUtc
+    ))
+    .ToListAsync(ct);
             return Ok(items);
         }
 
