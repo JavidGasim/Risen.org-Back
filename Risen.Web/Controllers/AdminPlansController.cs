@@ -103,10 +103,10 @@ namespace Risen.Web.Controllers
             return Ok(MapToDto(p));
         }
 
-        [HttpPut("{id:guid}")]
-        public async Task<IActionResult> Update(Guid id, [FromBody] AdminPlanRequest req, CancellationToken ct)
+        [HttpPut("{id}")]
+        public async Task<IActionResult> Update(string id, [FromBody] AdminPlanRequest req, CancellationToken ct)
         {
-            var p = await _db.Plans.FirstOrDefaultAsync(x => x.Id == id, ct);
+            var p = await _db.Plans.FirstOrDefaultAsync(x => x.Id.ToString() == id, ct);
             if (p is null) return NotFound();
 
             if (!Enum.TryParse<PlanCode>(req.Code, true, out var codeParsed))
@@ -128,10 +128,10 @@ namespace Risen.Web.Controllers
             return NoContent();
         }
 
-        [HttpDelete("{id:guid}")]
-        public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> Delete(string id, CancellationToken ct)
         {
-            var p = await _db.Plans.FirstOrDefaultAsync(x => x.Id == id, ct);
+            var p = await _db.Plans.FirstOrDefaultAsync(x => x.Id.ToString() == id, ct);
             if (p is null) return NotFound();
 
             _db.Plans.Remove(p);
