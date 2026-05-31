@@ -95,10 +95,10 @@ namespace Risen.Web.Controllers
             return CreatedAtAction(nameof(GetById), new { id = plan.Id }, MapToDto(plan));
         }
 
-        [HttpGet("{id:guid}")]
-        public async Task<ActionResult> GetById(Guid id, CancellationToken ct)
+        [HttpGet("{id}")]
+        public async Task<ActionResult> GetById(string id, CancellationToken ct)
         {
-            var p = await _db.Plans.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id, ct);
+            var p = await _db.Plans.AsNoTracking().FirstOrDefaultAsync(x => x.Id.ToString() == id, ct);
             if (p is null) return NotFound();
             return Ok(MapToDto(p));
         }
