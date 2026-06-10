@@ -30,6 +30,10 @@ namespace Risen.DataAccess.Data
         public DbSet<QuestAttempt> QuestAttempts => Set<QuestAttempt>();
         public DbSet<Risen.Entities.Entities.AdminAction> AdminActions => Set<Risen.Entities.Entities.AdminAction>();
         public DbSet<Subject> Subjects => Set<Subject>();
+        public DbSet<Post> Posts => Set<Post>();
+        public DbSet<Comment> Comments => Set<Comment>();
+        public DbSet<LikedPost> LikedPosts => Set<LikedPost>();
+        public DbSet<LikedComment> LikedComments => Set<LikedComment>();
 
 
 
