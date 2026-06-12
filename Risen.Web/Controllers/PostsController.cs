@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Risen.Business.Services.Abstracts;
 using Risen.Entities.Entities;
 
@@ -68,7 +69,66 @@ namespace Risen.Web.Controllers
                 ShareDate = DateTime.Now
             });
 
-            return Ok();
+            return Ok(new { Message = "Post shared successfully" });
+        }
+
+        [Authorize]
+        [HttpPost("deletePost")]
+        public async Task<IActionResult> DeletePost(int id)
+        {
+            var post = await _postService.GetByIdAsync(id);
+            var user = await _userManager.GetUserAsync(HttpContext.User);
+
+            if (post == null)
+            {
+                return NotFound(new { Message = "Post not found" });
+            }
+
+            await _postService.DeleteAsync(post);
+            return Ok(new { Message = "Post deleted successfully" });
+        }
+
+        [Authorize]
+        [HttpPost("addComment")]
+        public async Task<IActionResult> AddComment(int id, string message, string senderId)
+        {
+            var post = await _postService.GetByIdAsync(id);
+            var user = await _userManager.GetUserAsync(HttpContext.User);
+            if (post != null)
+            {
+                var comment = new Comment
+                {
+                    PostId = post.Id,
+                    Post = post,
+                    Content = message,
+                    WritingDate = DateTime.Now,
+                    Sender = user,
+                    SenderId = user.Id.ToString(),
+                };
+
+                post.CommentCount += 1;
+
+                await _postService.UpdateAsync(post);
+                await _commentService.AddAsync(comment);
+            }
+
+            var receiverUser = await _userManager.Users.FirstOrDefaultAsync(u => u.Id.ToString() == senderId);
+
+            return Ok(new {Message = "Comment added successfully"});
+        }
+
+        [Authorize]
+        [HttpPost("deleteComment")]
+        public async Task<IActionResult> DeleteComment(int id)
+        {
+            var comment = await _commentService.GetByIdAsync(id);
+            if (comment == null)
+            {
+                return NotFound(new { Message = "Comment not found" });
+            }
+
+            await _commentService.DeleteAsync(comment);
+            return Ok(new { Message = "Comment deleted successfully" });
         }
     }
 }
