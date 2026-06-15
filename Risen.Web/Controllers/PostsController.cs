@@ -114,7 +114,7 @@ namespace Risen.Web.Controllers
 
             var receiverUser = await _userManager.Users.FirstOrDefaultAsync(u => u.Id.ToString() == senderId);
 
-            return Ok(new {Message = "Comment added successfully"});
+            return Ok(new { Message = "Comment added successfully" });
         }
 
         [Authorize]
@@ -129,6 +129,90 @@ namespace Risen.Web.Controllers
 
             await _commentService.DeleteAsync(comment);
             return Ok(new { Message = "Comment deleted successfully" });
+        }
+
+        [Authorize]
+        [HttpPost("likePost")]
+        public async Task<IActionResult> SendLike(int id, string currentId)
+        {
+            var post = await _postService.GetByIdAsync(id);
+            var currentUser = await _userManager.GetUserAsync(HttpContext.User);
+            var likedPosts = await _likedPostService.GetAllAsync();
+            var message = "";
+            if (post != null)
+            {
+                var likedPost = likedPosts.FirstOrDefault(l => l.UserId == currentUser.Id.ToString() && l.PostId == post.Id);
+
+                if (likedPost == null)
+                {
+                    message = "liked";
+                    post.LikeCount += 1;
+                    await _postService.UpdateAsync(post);
+
+                    var newLikedPost = new LikedPost()
+                    {
+                        PostId = post.Id,
+                        Post = post,
+                        UserId = currentUser.Id.ToString(),
+                        User = currentUser
+                    };
+
+                    await _likedPostService.AddAsync(newLikedPost);
+                }
+                else
+                {
+                    message = "disliked";
+                    post.LikeCount -= 1;
+                    await _postService.UpdateAsync(post);
+                    await _likedPostService.DeleteAsync(likedPost);
+                }
+
+            }
+            return Ok(new { Message = $"Post {post.Id} liked//disliked successfully" });
+        }
+
+        [Authorize]
+        [HttpPost("likeComment")]
+        public async Task<IActionResult> SendCommentLike(int id, string senderId)
+        {
+            var comment = await _commentService.GetByIdAsync(id);
+            var currentUser = await _userManager.GetUserAsync(HttpContext.User);
+            var likedComments = await _likedCommentService.GetAllAsync();
+            string message = "";
+            if (comment != null)
+            {
+                var likedComment = likedComments.FirstOrDefault(l => l.UserId == currentUser.Id.ToString() && l.CommentId == comment.Id);
+
+                if (likedComment == null)
+                {
+                    message = "liked";
+
+                    comment.LikeCount += 1;
+                    await _commentService.UpdateAsync(comment);
+
+                    var newLikedComment = new LikedComment()
+                    {
+                        CommentId = comment.Id,
+                        Comment = comment,
+                        UserId = currentUser.Id.ToString(),
+                        User = currentUser
+                    };
+
+                    await _likedCommentService.AddAsync(newLikedComment);
+                }
+                else
+                {
+                    message = "disliked";
+
+                    comment.LikeCount -= 1;
+                    await _commentService.UpdateAsync(comment);
+                    await _likedCommentService.DeleteAsync(likedComment);
+                }
+
+
+            }
+
+            return Ok(new { Message = $"Comment {comment.Id} liked//disliked successfully" });
         }
     }
 }

@@ -22,5 +22,14 @@ namespace Risen.Entities.Entities
 
         // 1-1 stats
         public UserStats? Stats { get; set; }
+
+        public virtual ICollection<Friend>? Friends { get; set; }
+        public virtual ICollection<FriendRequest>? FriendRequests { get; set; }
+
+        public CustomIdentityUser()
+        {
+            Friends = new List<Friend>();
+            FriendRequests = new List<FriendRequest>();
+        }
     }
 }

@@ -34,6 +34,8 @@ namespace Risen.DataAccess.Data
         public DbSet<Comment> Comments => Set<Comment>();
         public DbSet<LikedPost> LikedPosts => Set<LikedPost>();
         public DbSet<LikedComment> LikedComments => Set<LikedComment>();
+        public DbSet<Friend> Friends => Set<Friend>();
+        public DbSet<FriendRequest> FriendRequests => Set<FriendRequest>();
 
 
 
