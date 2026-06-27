@@ -44,12 +44,12 @@ namespace Risen.Web.Controllers
             var user = await _userManager.GetUserAsync(HttpContext.User);
             var requests = await _friendRequestService.GetAllAsync();
             var datas = items;
-            var myRequests = requests.Where(r => r.SenderId == user.Id.ToString());
+            var myRequests = requests.Where(r => r.SenderId == user?.Id.ToString());
             var friends = await _friendService.GetAllAsync();
-            var myFriends = friends.Where(f => f.OwnId == user.Id.ToString() || f.YourFriendId == user.Id.ToString());
+            var myFriends = friends.Where(f => f.OwnId == user?.Id.ToString() || f.YourFriendId == user?.Id.ToString());
 
             var friendUsers = datas
-            .Where(u => myFriends.Any(f => f.OwnId == u.Id.ToString() || f.YourFriendId == u.Id.ToString()) && u.Id != user.Id)
+            .Where(u => myFriends.Any(f => f.OwnId == u.Id.ToString() || f.YourFriendId == u.Id.ToString()) && u.Id != user?.Id)
             .Select(u => new CustomIdentityUser
             {
                 Id = u.Id,
@@ -109,6 +109,12 @@ namespace Risen.Web.Controllers
 
             if (request == null)
                 return NotFound();
+
+            await _friendService.AddAsync(new Friend
+            {
+                OwnId = request.SenderId,
+                YourFriendId = request.ReceiverId
+            });
 
             return Ok("You are friends now");
         }
