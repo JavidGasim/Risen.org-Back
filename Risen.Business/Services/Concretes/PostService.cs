@@ -33,7 +33,7 @@ namespace Risen.Business.Services.Concretes
 
         public async Task<List<Post>> GetAllAsync()
         {
-            var posts = await _db.Posts.Include(nameof(Post.Comments)).Include(nameof(Post.Sender)).ToListAsync();
+            var posts = await _db.Posts.ToListAsync();
             return posts;
         }
 

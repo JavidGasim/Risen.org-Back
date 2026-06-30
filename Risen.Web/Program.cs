@@ -169,6 +169,11 @@ builder.Services.Configure<EmailSettings>(
 
 builder.Services.AddScoped<IEmailService, EmailService>();
 
+builder.Services.AddScoped<ICommentService, CommentService>();
+builder.Services.AddScoped<ILikedPostService, LikedPostService>();
+builder.Services.AddScoped<ILikedCommentService, LikedCommentService>();
+builder.Services.AddScoped<IPostService, PostService>();
+
 builder.Services.AddMemoryCache();
 
 // Admin audit service
