@@ -40,22 +40,40 @@ namespace Risen.Web.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult> List([FromQuery] int limit = 50, [FromQuery] int offset = 0, CancellationToken ct = default)
+        public async Task<ActionResult> List(
+     [FromQuery] int limit = 50,
+     [FromQuery] int offset = 0,
+     CancellationToken ct = default)
         {
             limit = Math.Clamp(limit, 1, 1000);
             offset = Math.Max(0, offset);
 
-            var q = _db.Users.AsNoTracking().OrderBy(u => u.FullName).Skip(offset).Take(limit);
-            var items = await q.Select(u => new
+            var users = await _users.Users
+                .AsNoTracking()
+                .OrderBy(u => u.FullName)
+                .Skip(offset)
+                .Take(limit)
+                .ToListAsync(ct);
+
+            var result = new List<object>();
+
+            foreach (var user in users)
             {
-                u.Id,
-                u.FullName,
-                u.Email,
-                u.UniversityId,
-                u.Stats,
-                IsAdmin = _db.UserRoles.Any(ur => ur.UserId == u.Id && _db.Roles.Any(r => r.Id == ur.RoleId && r.Name == "Admin"))
-            }).ToListAsync(ct);
-            return Ok(items);
+                var roles = await _users.GetRolesAsync(user);
+
+                result.Add(new
+                {
+                    user.Id,
+                    user.FullName,
+                    user.Email,
+                    user.UniversityId,
+                    user.Stats,
+                    Role = roles.FirstOrDefault() ?? "Student",
+                    IsAdmin = roles.Contains("Admin")
+                });
+            }
+
+            return Ok(result);
         }
 
         [HttpPost("{id:guid}/roles")]
