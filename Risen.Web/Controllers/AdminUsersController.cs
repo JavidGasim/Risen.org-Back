@@ -62,27 +62,64 @@ namespace Risen.Web.Controllers
         public async Task<IActionResult> AddRole(Guid id, [FromBody] string role, CancellationToken ct)
         {
             var user = await _users.FindByIdAsync(id.ToString());
-            if (user is null) return NotFound();
+            if (user is null)
+                return NotFound();
 
             if (!await _roles.RoleExistsAsync(role))
             {
-                var r = new CustomIdentityRole { Name = role };
-                var ir = await _roles.CreateAsync(r);
-                if (!ir.Succeeded) return BadRequest("Could not create role.");
+                var roleResult = await _roles.CreateAsync(new CustomIdentityRole
+                {
+                    Name = role
+                });
+
+                if (!roleResult.Succeeded)
+                    return BadRequest(roleResult.Errors);
             }
 
             var currentRoles = await _users.GetRolesAsync(user);
 
-            if (currentRoles.Any())
+            // Əgər istifadəçinin bu rolu yoxdursa, əvvəlcə əlavə et
+            if (!currentRoles.Contains(role))
             {
-                await _users.RemoveFromRolesAsync(user, currentRoles);
+                var addResult = await _users.AddToRoleAsync(user, role);
+
+                if (!addResult.Succeeded)
+                    return BadRequest(addResult.Errors);
+
+                // ConcurrencyStamp dəyişdiyi üçün user-i yenidən oxuyuruq
+                user = await _users.FindByIdAsync(id.ToString());
+
+                if (user is null)
+                    return NotFound();
             }
 
-            var res = await _users.AddToRoleAsync(user, role);
-            if (!res.Succeeded) return BadRequest(res.Errors);
+            // Yeni roldan başqa bütün rolları sil
+            currentRoles = await _users.GetRolesAsync(user);
+
+            var rolesToRemove = currentRoles
+                .Where(r => r != role)
+                .ToList();
+
+            if (rolesToRemove.Any())
+            {
+                var removeResult = await _users.RemoveFromRolesAsync(user, rolesToRemove);
+
+                if (!removeResult.Succeeded)
+                    return BadRequest(removeResult.Errors);
+
+                // Yenə refresh edirik
+                user = await _users.FindByIdAsync(id.ToString());
+
+                if (user is null)
+                    return NotFound();
+            }
+
             try
             {
-                var adminId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub"));
+                var adminId = Guid.Parse(
+                    User.FindFirstValue(ClaimTypes.NameIdentifier)
+                    ?? User.FindFirstValue("sub"));
+
                 _db.AdminActions.Add(new Risen.Entities.Entities.AdminAction
                 {
                     Id = Guid.NewGuid(),
@@ -92,6 +129,7 @@ namespace Risen.Web.Controllers
                     Details = $"Role:{role}",
                     CreatedAtUtc = DateTime.UtcNow
                 });
+
                 await _db.SaveChangesAsync(ct);
 
                 var newRoles = await _users.GetRolesAsync(user);
@@ -100,8 +138,7 @@ namespace Risen.Web.Controllers
                     user,
                     newRoles,
                     isPremium: false,
-                    plan: "Free"
-                );
+                    plan: "Free");
 
                 try
                 {
@@ -112,18 +149,19 @@ namespace Risen.Web.Controllers
                             userId = user.Id,
                             token = newToken
                         }, cancellationToken: ct);
-                    await _hub.Clients.All.SendAsync("UsersUpdated");
+
+                    await _hub.Clients.All.SendAsync("UsersUpdated", cancellationToken: ct);
                 }
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "SignalR failed");
                 }
-
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Role change failed for user {UserId}", user.Id);
             }
+
             return NoContent();
         }
 
