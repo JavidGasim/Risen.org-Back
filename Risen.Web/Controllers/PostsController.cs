@@ -66,6 +66,10 @@ namespace Risen.Web.Controllers
             {
                 Text = text,
                 SenderId = sender.Id.ToString(),
+                Sender = new CustomIdentityUser
+                {
+                    UserName = sender.UserName,
+                },
                 ShareDate = DateTime.Now
             });
 
