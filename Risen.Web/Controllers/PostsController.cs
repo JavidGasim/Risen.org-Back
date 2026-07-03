@@ -91,29 +91,27 @@ namespace Risen.Web.Controllers
 
         [Authorize]
         [HttpPost("addComment")]
-        public async Task<IActionResult> AddComment(int id, string message, string senderId)
+        public async Task<IActionResult> AddComment(int id, string message)
         {
             var post = await _postService.GetByIdAsync(id);
+            if (post == null)
+                return NotFound();
+
             var user = await _userManager.GetUserAsync(HttpContext.User);
-            if (post != null)
+
+            var comment = new Comment
             {
-                var comment = new Comment
-                {
-                    PostId = post.Id,
-                    Post = post,
-                    Content = message,
-                    WritingDate = DateTime.Now,
-                    Sender = user,
-                    SenderId = user.Id.ToString(),
-                };
+                PostId = post.Id,
+                Content = message,
+                WritingDate = DateTime.Now,
+                SenderId = user.Id.ToString(),
+                Sender = user
+            };
 
-                post.CommentCount += 1;
+            post.CommentCount++;
 
-                await _postService.UpdateAsync(post);
-                await _commentService.AddAsync(comment);
-            }
-
-            var receiverUser = await _userManager.Users.FirstOrDefaultAsync(u => u.Id.ToString() == senderId);
+            await _commentService.AddAsync(comment);
+            await _postService.UpdateAsync(post);
 
             return Ok(new { Message = "Comment added successfully" });
         }

@@ -34,9 +34,10 @@ namespace Risen.Business.Services.Concretes
         public async Task<List<Post>> GetAllAsync()
         {
             var posts = await _db.Posts
-    .Include(x => x.Sender)
-    .Include(x => x.Comments)
-    .ToListAsync();
+        .Include(x => x.Sender)
+        .Include(x => x.Comments)
+            .ThenInclude(c => c.Sender)
+        .ToListAsync();
             return posts;
         }
 
@@ -45,7 +46,8 @@ namespace Risen.Business.Services.Concretes
             var post = await _db.Posts
         .Include(x => x.Sender)
         .Include(x => x.Comments)
-        .FirstOrDefaultAsync(x => x.Id == id); ;
+            .ThenInclude(c => c.Sender)
+        .FirstOrDefaultAsync(x => x.Id == id);
             return post;
         }
 
