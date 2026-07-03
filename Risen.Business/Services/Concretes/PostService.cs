@@ -35,6 +35,7 @@ namespace Risen.Business.Services.Concretes
         {
             var posts = await _db.Posts
     .Include(x => x.Sender)
+    .Include(x => x.Comments)
     .ToListAsync();
             return posts;
         }
