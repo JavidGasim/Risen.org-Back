@@ -1,9 +1,12 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Risen.Business.Services.Abstracts;
 using Risen.Entities.Entities;
+using Risen.Web.Hubs;
+using System.ComponentModel.Design;
 
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
@@ -19,8 +22,9 @@ namespace Risen.Web.Controllers
         private readonly ILikedPostService _likedPostService;
         private readonly ILikedCommentService _likedCommentService;
         private readonly ILogger<PostsController> _logger;
+        private readonly IHubContext<CommunityHub> _communityHub;
 
-        public PostsController(UserManager<CustomIdentityUser> userManager, IPostService postService, ICommentService commentService, ILikedPostService likedPostService, ILikedCommentService likedCommentService, ILogger<PostsController> logger)
+        public PostsController(UserManager<CustomIdentityUser> userManager, IPostService postService, ICommentService commentService, ILikedPostService likedPostService, ILikedCommentService likedCommentService, ILogger<PostsController> logger, IHubContext<CommunityHub> communityHub)
         {
             _userManager = userManager;
             _postService = postService;
@@ -28,6 +32,7 @@ namespace Risen.Web.Controllers
             _likedPostService = likedPostService;
             _likedCommentService = likedCommentService;
             _logger = logger;
+            _communityHub = communityHub;
         }
 
         [Authorize]
@@ -70,6 +75,8 @@ namespace Risen.Web.Controllers
                 ShareDate = DateTime.Now
             });
 
+            await _communityHub.Clients.All.SendAsync("PostAdded");
+
             return Ok(new { Message = "Post shared successfully" });
         }
 
@@ -86,6 +93,9 @@ namespace Risen.Web.Controllers
             }
 
             await _postService.DeleteAsync(post);
+
+            await _communityHub.Clients.All.SendAsync("PostDeleted", id);
+
             return Ok(new { Message = "Post deleted successfully" });
         }
 
@@ -113,6 +123,8 @@ namespace Risen.Web.Controllers
             await _commentService.AddAsync(comment);
             await _postService.UpdateAsync(post);
 
+            await _communityHub.Clients.All.SendAsync("CommentAdded", post.Id);
+
             return Ok(new { Message = "Comment added successfully" });
         }
 
@@ -138,6 +150,8 @@ namespace Risen.Web.Controllers
             await _postService.UpdateAsync(post);
             await _commentService.DeleteAsync(comment);
 
+            await _communityHub.Clients.All.SendAsync("CommentDeleted", post.Id);
+
             return Ok(new { Message = "Comment deleted successfully" });
         }
 
@@ -149,35 +163,42 @@ namespace Risen.Web.Controllers
             var currentUser = await _userManager.GetUserAsync(HttpContext.User);
             var likedPosts = await _likedPostService.GetAllAsync();
             var message = "";
-            if (post != null)
+
+            if (post == null)
             {
-                var likedPost = likedPosts.FirstOrDefault(l => l.UserId == currentUser.Id.ToString() && l.PostId == post.Id);
-
-                if (likedPost == null)
-                {
-                    message = "liked";
-                    post.LikeCount += 1;
-                    await _postService.UpdateAsync(post);
-
-                    var newLikedPost = new LikedPost()
-                    {
-                        PostId = post.Id,
-                        Post = post,
-                        UserId = currentUser.Id.ToString(),
-                        User = currentUser
-                    };
-
-                    await _likedPostService.AddAsync(newLikedPost);
-                }
-                else
-                {
-                    message = "disliked";
-                    post.LikeCount -= 1;
-                    await _postService.UpdateAsync(post);
-                    await _likedPostService.DeleteAsync(likedPost);
-                }
-
+                return NotFound(new { Message = "Post not found" });
             }
+
+            var likedPost = likedPosts.FirstOrDefault(l => l.UserId == currentUser.Id.ToString() && l.PostId == post.Id);
+
+            if (likedPost == null)
+            {
+                message = "liked";
+                post.LikeCount += 1;
+                await _postService.UpdateAsync(post);
+
+                var newLikedPost = new LikedPost()
+                {
+                    PostId = post.Id,
+                    Post = post,
+                    UserId = currentUser.Id.ToString(),
+                    User = currentUser
+                };
+
+                await _likedPostService.AddAsync(newLikedPost);
+            }
+            else
+            {
+                message = "disliked";
+                post.LikeCount -= 1;
+                await _postService.UpdateAsync(post);
+                await _likedPostService.DeleteAsync(likedPost);
+            }
+
+
+
+            await _communityHub.Clients.All.SendAsync("PostLikeChanged", post.Id);
+
             return Ok(new { Message = $"Post {post.Id} liked//disliked successfully" });
         }
 
@@ -189,38 +210,45 @@ namespace Risen.Web.Controllers
             var currentUser = await _userManager.GetUserAsync(HttpContext.User);
             var likedComments = await _likedCommentService.GetAllAsync();
             string message = "";
-            if (comment != null)
+
+            if (comment == null)
             {
-                var likedComment = likedComments.FirstOrDefault(l => l.UserId == currentUser.Id.ToString() && l.CommentId == comment.Id);
-
-                if (likedComment == null)
-                {
-                    message = "liked";
-
-                    comment.LikeCount += 1;
-                    await _commentService.UpdateAsync(comment);
-
-                    var newLikedComment = new LikedComment()
-                    {
-                        CommentId = comment.Id,
-                        Comment = comment,
-                        UserId = currentUser.Id.ToString(),
-                        User = currentUser
-                    };
-
-                    await _likedCommentService.AddAsync(newLikedComment);
-                }
-                else
-                {
-                    message = "disliked";
-
-                    comment.LikeCount -= 1;
-                    await _commentService.UpdateAsync(comment);
-                    await _likedCommentService.DeleteAsync(likedComment);
-                }
-
-
+                return NotFound(new { Message = "Comment not found" });
             }
+
+
+            var likedComment = likedComments.FirstOrDefault(l => l.UserId == currentUser.Id.ToString() && l.CommentId == comment.Id);
+
+            if (likedComment == null)
+            {
+                message = "liked";
+
+                comment.LikeCount += 1;
+                await _commentService.UpdateAsync(comment);
+
+                var newLikedComment = new LikedComment()
+                {
+                    CommentId = comment.Id,
+                    Comment = comment,
+                    UserId = currentUser.Id.ToString(),
+                    User = currentUser
+                };
+
+                await _likedCommentService.AddAsync(newLikedComment);
+            }
+            else
+            {
+                message = "disliked";
+
+                comment.LikeCount -= 1;
+                await _commentService.UpdateAsync(comment);
+                await _likedCommentService.DeleteAsync(likedComment);
+            }
+
+
+
+
+            await _communityHub.Clients.All.SendAsync("CommentLikeChanged", comment.Id);
 
             return Ok(new { Message = $"Comment {comment.Id} liked//disliked successfully" });
         }

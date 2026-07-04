@@ -227,6 +227,7 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.UseWebSockets();
+app.MapHub<CommunityHub>("/communityHub");
 app.MapHub<NotificationHub>("/notificationHub");
 
 app.Run();
