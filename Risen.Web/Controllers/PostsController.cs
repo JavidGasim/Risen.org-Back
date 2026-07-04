@@ -120,13 +120,24 @@ namespace Risen.Web.Controllers
         [HttpPost("deleteComment")]
         public async Task<IActionResult> DeleteComment(int id)
         {
+            var post = await _postService.GetByIdAsync(id);
+
+            if (post == null)
+            {
+                return NotFound();
+            }
+
             var comment = await _commentService.GetByIdAsync(id);
             if (comment == null)
             {
                 return NotFound(new { Message = "Comment not found" });
             }
 
+            post.CommentCount--;
+
+            await _postService.UpdateAsync(post);
             await _commentService.DeleteAsync(comment);
+
             return Ok(new { Message = "Comment deleted successfully" });
         }
 
