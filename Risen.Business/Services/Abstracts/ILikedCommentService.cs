@@ -14,5 +14,6 @@ namespace Risen.Business.Services.Abstracts
         Task AddAsync(LikedComment value);
         Task UpdateAsync(LikedComment value);
         Task DeleteAsync(LikedComment value);
+        Task<List<LikedComment>> GetByUserIdAsync(string userId);
     }
 }

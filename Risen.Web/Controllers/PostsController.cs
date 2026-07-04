@@ -48,9 +48,9 @@ namespace Risen.Web.Controllers
         {
             var allPosts = await _postService.GetAllAsync();
             var current = await _userManager.GetUserAsync(HttpContext.User);
-            var likedPosts = await _likedPostService.GetAllAsync();
+            var likedPosts = await _likedPostService.GetByUserIdAsync(current.Id.ToString());
+            var likedComments = await _likedCommentService.GetByUserIdAsync(current.Id.ToString());
             var myPosts = allPosts.Where(p => p.SenderId == current.Id.ToString());
-            var likedComments = await _likedCommentService.GetAllAsync();
 
 
             return Ok(new { posts = myPosts, currentId = current.Id, likedPosts = likedPosts, likedComments = likedComments });

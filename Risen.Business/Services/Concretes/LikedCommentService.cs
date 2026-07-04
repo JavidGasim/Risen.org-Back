@@ -48,5 +48,12 @@ namespace Risen.Business.Services.Concretes
             _db.LikedComments.Update(value);
             await _db.SaveChangesAsync();
         }
+
+        public async Task<List<LikedComment>> GetByUserIdAsync(string userId)
+        {
+            return await _db.LikedComments
+                .Where(x => x.UserId == userId)
+                .ToListAsync();
+        }
     }
 }
