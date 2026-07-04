@@ -17,6 +17,7 @@ using Risen.Web.Infrastructure;
 using Risen.Web.Middlewares;
 using Serilog;
 using System.Text;
+using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -185,7 +186,11 @@ builder.Services.AddValidatorsFromAssemblyContaining<RegisterRequestValidator>()
 // Subjects
 builder.Services.AddScoped<Risen.Business.Services.Abstracts.ISubjectService, Risen.Business.Services.Concretes.SubjectService>();
 
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
+    });
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
