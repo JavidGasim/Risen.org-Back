@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Risen.Business.Services.Abstracts;
 using Risen.Entities.Entities;
 using Risen.Web.Hubs;
+using Risen.Web.Mappers;
 using System.ComponentModel.Design;
 
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
@@ -44,7 +45,7 @@ namespace Risen.Web.Controllers
             var likedPosts = await _likedPostService.GetAllAsync();
             var likedComments = await _likedCommentService.GetAllAsync();
 
-            return Ok(allPosts);
+            return Ok(allPosts.Select(x => x.ToDto()));
         }
 
         [Authorize]
@@ -58,7 +59,13 @@ namespace Risen.Web.Controllers
             var myPosts = allPosts.Where(p => p.SenderId == current.Id.ToString());
 
 
-            return Ok(new { posts = myPosts, currentId = current.Id, likedPosts = likedPosts, likedComments = likedComments });
+            return Ok(new
+            {
+                posts = myPosts.Select(x => x.ToDto()),
+                currentId = current.Id,
+                likedPosts,
+                likedComments
+            });
         }
 
         [Authorize]
@@ -67,15 +74,22 @@ namespace Risen.Web.Controllers
         {
             var sender = await _userManager.GetUserAsync(HttpContext.User);
 
-            await _postService.AddAsync(new Post
+            var post = new Post
             {
                 Text = text,
                 SenderId = sender.Id.ToString(),
                 Sender = sender,
-                ShareDate = DateTime.Now
-            });
+                ShareDate = DateTime.Now,
+                LikeCount = 0,
+                CommentCount = 0,
+                Comments = new List<Comment>()
+            };
 
-            await _communityHub.Clients.All.SendAsync("PostAdded");
+            await _postService.AddAsync(post);
+
+            await _communityHub.Clients.All.SendAsync(
+                "PostAdded",
+                post.ToDto());
 
             return Ok(new { Message = "Post shared successfully" });
         }
@@ -94,7 +108,10 @@ namespace Risen.Web.Controllers
 
             await _postService.DeleteAsync(post);
 
-            await _communityHub.Clients.All.SendAsync("PostDeleted", id);
+            await _communityHub.Clients.All.SendAsync("PostDeleted", new
+            {
+                PostId = id
+            });
 
             return Ok(new { Message = "Post deleted successfully" });
         }
@@ -197,7 +214,13 @@ namespace Risen.Web.Controllers
 
 
 
-            await _communityHub.Clients.All.SendAsync("PostLikeChanged", post.Id);
+            await _communityHub.Clients.All.SendAsync("PostLikeChanged", new
+            {
+                PostId = post.Id,
+                LikeCount = post.LikeCount ?? 0,
+                UserId = currentUser.Id.ToString(),
+                IsLiked = likedPost == null
+            });
 
             return Ok(new { Message = $"Post {post.Id} liked//disliked successfully" });
         }
