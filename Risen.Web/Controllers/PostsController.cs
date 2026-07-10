@@ -143,9 +143,9 @@ namespace Risen.Web.Controllers
 
             await _communityHub.Clients.All.SendAsync("CommentAdded", new
             {
-                PostId = post.Id,
-                Comment = comment,
-                CommentCount = post.CommentCount
+                postId = post.Id,
+                comment = comment.ToDto(),
+                commentCount = post.CommentCount
             });
 
             return Ok(new { Message = "Comment added successfully" });
@@ -175,9 +175,9 @@ namespace Risen.Web.Controllers
 
             await _communityHub.Clients.All.SendAsync("CommentDeleted", new
             {
-                PostId = post.Id,
-                CommentId = comment.Id,
-                CommentCount = post.CommentCount
+                postId = post.Id,
+                commentId = comment.Id,
+                commentCount = post.CommentCount
             });
 
             return Ok(new { Message = "Comment deleted successfully" });
@@ -284,10 +284,10 @@ namespace Risen.Web.Controllers
 
             await _communityHub.Clients.All.SendAsync("CommentLikeChanged", new
             {
-                CommentId = comment.Id,
-                LikeCount = comment.LikeCount,
-                UserId = currentUser.Id,
-                IsLiked = likedComment == null
+                commentId = comment.Id,
+                likeCount = comment.LikeCount,
+                userId = currentUser.Id,
+                isLiked = likedComment == null
             });
 
             return Ok(new { Message = $"Comment {comment.Id} liked//disliked successfully" });
