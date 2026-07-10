@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Risen.Business.Services.Abstracts;
 using Risen.Entities.Entities;
+using Risen.Web.Dto;
 using Risen.Web.Hubs;
 using Risen.Web.Mappers;
 using System.ComponentModel.Design;
@@ -140,7 +141,12 @@ namespace Risen.Web.Controllers
             await _commentService.AddAsync(comment);
             await _postService.UpdateAsync(post);
 
-            await _communityHub.Clients.All.SendAsync("CommentAdded", post.Id);
+            await _communityHub.Clients.All.SendAsync("CommentAdded", new
+            {
+                PostId = post.Id,
+                Comment = comment,
+                CommentCount = post.CommentCount
+            });
 
             return Ok(new { Message = "Comment added successfully" });
         }
@@ -167,7 +173,12 @@ namespace Risen.Web.Controllers
             await _postService.UpdateAsync(post);
             await _commentService.DeleteAsync(comment);
 
-            await _communityHub.Clients.All.SendAsync("CommentDeleted", post.Id);
+            await _communityHub.Clients.All.SendAsync("CommentDeleted", new
+            {
+                PostId = post.Id,
+                CommentId = comment.Id,
+                CommentCount = post.CommentCount
+            });
 
             return Ok(new { Message = "Comment deleted successfully" });
         }
@@ -271,7 +282,13 @@ namespace Risen.Web.Controllers
 
 
 
-            await _communityHub.Clients.All.SendAsync("CommentLikeChanged", comment.Id);
+            await _communityHub.Clients.All.SendAsync("CommentLikeChanged", new
+            {
+                CommentId = comment.Id,
+                LikeCount = comment.LikeCount,
+                UserId = currentUser.Id,
+                IsLiked = likedComment == null
+            });
 
             return Ok(new { Message = $"Comment {comment.Id} liked//disliked successfully" });
         }
