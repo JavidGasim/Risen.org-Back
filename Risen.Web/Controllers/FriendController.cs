@@ -236,5 +236,25 @@ namespace Risen.Web.Controllers
             else
                 return Ok(requests);
         }
+
+        [Authorize]
+        [HttpPost("remove-friend/{friendId}")]
+        public async Task<IActionResult> RemoveFriend(int friendId)
+        {
+            var userId = _userManager.GetUserId(User);
+
+            var friend = await _db.Friends
+                .FirstOrDefaultAsync(f =>
+                    f.OwnId == userId &&
+                    f.YourFriendId == friendId.ToString());
+
+            if (friend == null)
+                return NotFound();
+
+            _db.Friends.Remove(friend);
+            await _db.SaveChangesAsync();
+
+            return Ok("Friend removed");
+        }
     }
 }
