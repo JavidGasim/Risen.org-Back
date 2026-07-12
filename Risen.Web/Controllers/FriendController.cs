@@ -43,6 +43,24 @@ namespace Risen.Web.Controllers
         }
 
         [Authorize]
+        [HttpGet("search")]
+        public async Task<IActionResult> SearchUsers([FromQuery] string searchTerm)
+        {
+            var users = await _userManager.Users
+                .Where(u => u.FullName.Contains(searchTerm))
+                .ToListAsync();
+            var userDtos = users.Select(u => new
+            {
+                u.Id,
+                u.FullName,
+                u.Email,
+                u.UniversityId,
+                u.Stats
+            }).ToList();
+            return Ok(userDtos);
+        }
+
+        [Authorize]
         [HttpGet("all")]
         public async Task<IActionResult> GetAllFriends()
         {
