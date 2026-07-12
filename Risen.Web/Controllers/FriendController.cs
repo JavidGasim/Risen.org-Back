@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Risen.Business.Services.Abstracts;
 using Risen.DataAccess.Data;
 using Risen.Entities.Entities;
+using System.Diagnostics.Metrics;
 
 namespace Risen.Web.Controllers
 {
@@ -158,6 +159,7 @@ namespace Risen.Web.Controllers
         [HttpGet("sent-requests")]
         public async Task<IActionResult> GetSentRequests()
         {
+            var counter = 0;
             var userId = _userManager.GetUserId(User);
 
             var requests = await _db.FriendRequests
@@ -175,17 +177,30 @@ namespace Risen.Web.Controllers
                             u.UniversityId,
                             u.Stats
                         })
-                        .FirstOrDefault()
+                        .FirstOrDefault(),
+                    r.Status
                 })
                 .ToListAsync();
 
-            return Ok(requests);
+            foreach (var request in requests)
+            {
+                if (request.Status == "Pending" || request.Status == "pending" || request.Status == "PENDING")
+                {
+                    counter++;
+                }
+            }
+
+            if (counter == 0)
+                return Ok(new { message = "No pending requests" });
+            else
+                return Ok(requests);
         }
 
         [Authorize]
         [HttpGet("received-requests")]
         public async Task<IActionResult> GetReceivedRequests()
         {
+            var counter = 0;
             var userId = _userManager.GetUserId(User);
 
             var requests = await _db.FriendRequests
@@ -203,11 +218,23 @@ namespace Risen.Web.Controllers
                             u.UniversityId,
                             u.Stats
                         })
-                        .FirstOrDefault()
+                        .FirstOrDefault(),
+                    r.Status
                 })
                 .ToListAsync();
 
-            return Ok(requests);
+            foreach (var request in requests)
+            {
+                if (request.Status == "Pending" || request.Status == "pending" || request.Status == "PENDING")
+                {
+                    counter++;
+                }
+            }
+
+            if (counter == 0)
+                return Ok(new { message = "No pending requests" });
+            else
+                return Ok(requests);
         }
     }
 }
