@@ -27,6 +27,22 @@ namespace Risen.Web.Controllers
         }
 
         [Authorize]
+        [HttpGet("users")]
+        public async Task<IActionResult> GetAllUsers()
+        {
+            var users = await _userManager.Users.ToListAsync();
+            var userDtos = users.Select(u => new
+            {
+                u.Id,
+                u.FullName,
+                u.Email,
+                u.UniversityId,
+                u.Stats
+            }).ToList();
+            return Ok(userDtos);
+        }
+
+        [Authorize]
         [HttpGet("all")]
         public async Task<IActionResult> GetAllFriends()
         {
