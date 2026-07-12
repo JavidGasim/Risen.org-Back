@@ -239,7 +239,7 @@ namespace Risen.Web.Controllers
 
         [Authorize]
         [HttpPost("remove-friend/{friendId}")]
-        public async Task<IActionResult> RemoveFriend(int friendId)
+        public async Task<IActionResult> RemoveFriend(string friendId)
         {
             var userId = _userManager.GetUserId(User);
 
