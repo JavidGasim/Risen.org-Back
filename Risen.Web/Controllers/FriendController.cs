@@ -19,11 +19,12 @@ namespace Risen.Web.Controllers
         private readonly AppDbContext _db;
 
 
-        public FriendController(UserManager<CustomIdentityUser> userManager, IFriendService friendService, IFriendRequestService friendRequestService)
+        public FriendController(UserManager<CustomIdentityUser> userManager, IFriendService friendService, IFriendRequestService friendRequestService, AppDbContext appDbContext)
         {
             _userManager = userManager;
             _friendService = friendService;
             _friendRequestService = friendRequestService;
+            _db = appDbContext;
         }
 
         [Authorize]
