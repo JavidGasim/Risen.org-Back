@@ -89,7 +89,7 @@ namespace Risen.Web.Controllers
             .Select(u => new CustomIdentityUser
             {
                 Id = u.Id,
-                UserName = u.Email,
+                FullName = u.FullName,
                 Email = u.Email
             })
             .ToList();
