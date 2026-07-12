@@ -175,6 +175,9 @@ builder.Services.AddScoped<ILikedPostService, LikedPostService>();
 builder.Services.AddScoped<ILikedCommentService, LikedCommentService>();
 builder.Services.AddScoped<IPostService, PostService>();
 
+builder.Services.AddScoped<IFriendService, FriendService>();
+builder.Services.AddScoped<IFriendRequestService, FriendRequestService>();
+
 builder.Services.AddMemoryCache();
 
 // Admin audit service
