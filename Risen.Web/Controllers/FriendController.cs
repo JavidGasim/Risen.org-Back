@@ -154,5 +154,60 @@ namespace Risen.Web.Controllers
             return Ok("You are friends now");
         }
 
+        [Authorize]
+        [HttpGet("sent-requests")]
+        public async Task<IActionResult> GetSentRequests()
+        {
+            var userId = _userManager.GetUserId(User);
+
+            var requests = await _db.FriendRequests
+                .Where(r => r.SenderId == userId)
+                .Select(r => new
+                {
+                    r.Id,
+                    Receiver = _db.Users
+                        .Where(u => u.Id.ToString() == r.ReceiverId)
+                        .Select(u => new
+                        {
+                            u.Id,
+                            u.FullName,
+                            u.Email,
+                            u.UniversityId,
+                            u.Stats
+                        })
+                        .FirstOrDefault()
+                })
+                .ToListAsync();
+
+            return Ok(requests);
+        }
+
+        [Authorize]
+        [HttpGet("received-requests")]
+        public async Task<IActionResult> GetReceivedRequests()
+        {
+            var userId = _userManager.GetUserId(User);
+
+            var requests = await _db.FriendRequests
+                .Where(r => r.ReceiverId == userId)
+                .Select(r => new
+                {
+                    r.Id,
+                    Sender = _db.Users
+                        .Where(u => u.Id.ToString() == r.SenderId)
+                        .Select(u => new
+                        {
+                            u.Id,
+                            u.FullName,
+                            u.Email,
+                            u.UniversityId,
+                            u.Stats
+                        })
+                        .FirstOrDefault()
+                })
+                .ToListAsync();
+
+            return Ok(requests);
+        }
     }
 }
