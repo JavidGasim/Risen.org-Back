@@ -152,6 +152,9 @@ namespace Risen.Web.Controllers
                 YourFriendId = request.ReceiverId
             });
 
+            _db.FriendRequests.Remove(request);
+            await _db.SaveChangesAsync();
+
             return Ok("You are friends now");
         }
 
