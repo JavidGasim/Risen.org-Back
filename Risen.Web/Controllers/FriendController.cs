@@ -110,9 +110,9 @@ namespace Risen.Web.Controllers
 
             var exists = await _db.FriendRequests
                 .AnyAsync(x =>
-                    (x.SenderId == senderId &&
+                    ((x.SenderId == senderId &&
                     x.ReceiverId == receiverId
-                    ) || (x.SenderId == receiverId && x.ReceiverId == senderId));
+                    ) || (x.SenderId == receiverId && x.ReceiverId == senderId)) && (x.Status == "Pending" || x.Status == "Accepted"));
 
 
             if (exists)
