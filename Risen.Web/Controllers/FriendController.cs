@@ -159,6 +159,26 @@ namespace Risen.Web.Controllers
         }
 
         [Authorize]
+        [HttpPost("reject/{requestId}")]
+        public async Task<IActionResult> DeclineRequest(int requestId)
+        {
+            var userId = _userManager.GetUserId(User);
+
+            var request = await _db.FriendRequests
+                .FirstOrDefaultAsync(x =>
+                    x.Id == requestId &&
+                    x.ReceiverId == userId);
+
+            if (request == null)
+                return NotFound();
+
+            _db.FriendRequests.Remove(request);
+            await _db.SaveChangesAsync();
+
+            return Ok("Request declined");
+        }
+
+        [Authorize]
         [HttpGet("sent-requests")]
         public async Task<IActionResult> GetSentRequests()
         {
