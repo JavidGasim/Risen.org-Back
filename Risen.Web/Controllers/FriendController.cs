@@ -121,7 +121,8 @@ namespace Risen.Web.Controllers
             var request = new FriendRequest
             {
                 SenderId = senderId,
-                ReceiverId = receiverId
+                ReceiverId = receiverId,
+                Status = "Pending"
             };
 
 
@@ -152,7 +153,8 @@ namespace Risen.Web.Controllers
                 YourFriendId = request.ReceiverId
             });
 
-            _db.FriendRequests.Remove(request);
+            request.Status = "Accepted";
+            await _friendRequestService.UpdateAsync(request);
             await _db.SaveChangesAsync();
 
             return Ok("You are friends now");
@@ -172,7 +174,8 @@ namespace Risen.Web.Controllers
             if (request == null)
                 return NotFound();
 
-            _db.FriendRequests.Remove(request);
+            request.Status = "Rejected";
+            await _friendRequestService.UpdateAsync(request);
             await _db.SaveChangesAsync();
 
             return Ok("Request declined");
@@ -182,7 +185,7 @@ namespace Risen.Web.Controllers
         [HttpGet("sent-requests")]
         public async Task<IActionResult> GetSentRequests()
         {
-            var counter = 0;
+            int counter = 0;
             var userId = _userManager.GetUserId(User);
 
             var requests = await _db.FriendRequests
@@ -223,7 +226,7 @@ namespace Risen.Web.Controllers
         [HttpGet("received-requests")]
         public async Task<IActionResult> GetReceivedRequests()
         {
-            var counter = 0;
+            int counter = 0;
             var userId = _userManager.GetUserId(User);
 
             var requests = await _db.FriendRequests
