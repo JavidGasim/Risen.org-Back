@@ -278,6 +278,14 @@ namespace Risen.Web.Controllers
             if (friend == null)
                 return NotFound();
 
+            var friendRequest = await _db.FriendRequests
+                .FirstOrDefaultAsync(fr =>
+                    (fr.SenderId == userId && fr.ReceiverId == friendId.ToString()) || (fr.SenderId == friendId.ToString() && fr.ReceiverId == userId.ToString()));
+
+            if (friendRequest == null)
+                return NotFound();
+
+            _db.FriendRequests.Remove(friendRequest);
             _db.Friends.Remove(friend);
             await _db.SaveChangesAsync();
 
