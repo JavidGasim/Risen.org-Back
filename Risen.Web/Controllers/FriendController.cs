@@ -110,8 +110,9 @@ namespace Risen.Web.Controllers
 
             var exists = await _db.FriendRequests
                 .AnyAsync(x =>
-                    x.SenderId == senderId &&
-                    x.ReceiverId == receiverId);
+                    (x.SenderId == senderId &&
+                    x.ReceiverId == receiverId
+                    ) || (x.SenderId == receiverId && x.ReceiverId == senderId));
 
 
             if (exists)
@@ -271,8 +272,8 @@ namespace Risen.Web.Controllers
 
             var friend = await _db.Friends
                 .FirstOrDefaultAsync(f =>
-                    f.OwnId == userId &&
-                    f.YourFriendId == friendId.ToString());
+                    (f.OwnId == userId &&
+                    f.YourFriendId == friendId.ToString()) || (f.OwnId == friendId.ToString() && f.YourFriendId == userId.ToString()));
 
             if (friend == null)
                 return NotFound();
