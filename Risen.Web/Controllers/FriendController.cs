@@ -2,10 +2,12 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Risen.Business.Services.Abstracts;
 using Risen.DataAccess.Data;
 using Risen.Entities.Entities;
+using Risen.Web.Hubs;
 using System.Diagnostics.Metrics;
 
 namespace Risen.Web.Controllers
@@ -18,14 +20,16 @@ namespace Risen.Web.Controllers
         private readonly IFriendService _friendService;
         private readonly IFriendRequestService _friendRequestService;
         private readonly AppDbContext _db;
+        private readonly IHubContext<FriendHub> _hubContext;
 
 
-        public FriendController(UserManager<CustomIdentityUser> userManager, IFriendService friendService, IFriendRequestService friendRequestService, AppDbContext appDbContext)
+        public FriendController(UserManager<CustomIdentityUser> userManager, IFriendService friendService, IFriendRequestService friendRequestService, AppDbContext appDbContext, IHubContext<FriendHub> hubContext)
         {
             _userManager = userManager;
             _friendService = friendService;
             _friendRequestService = friendRequestService;
             _db = appDbContext;
+            _hubContext = hubContext;
         }
 
         [Authorize]
@@ -128,6 +132,14 @@ namespace Risen.Web.Controllers
 
 
             await _friendRequestService.AddAsync(request);
+
+            await _hubContext.Clients
+                 .User(receiverId)
+                 .SendAsync("FriendRequestReceived", new
+                 {
+                     SenderId = senderId
+                 });
+
             return Ok("Request sent");
         }
 
@@ -158,6 +170,18 @@ namespace Risen.Web.Controllers
             await _friendRequestService.UpdateAsync(request);
             await _db.SaveChangesAsync();
 
+            await _hubContext.Clients.User(request.SenderId)
+                    .SendAsync("FriendRequestAccepted", new
+                    {
+                        FriendId = request.ReceiverId
+                    });
+
+            await _hubContext.Clients.User(request.ReceiverId)
+                     .SendAsync("FriendRequestAccepted", new
+                     {
+                         FriendId = request.SenderId
+                     });
+
             return Ok("You are friends now");
         }
 
@@ -178,6 +202,9 @@ namespace Risen.Web.Controllers
             request.Status = "Rejected";
             await _friendRequestService.UpdateAsync(request);
             await _db.SaveChangesAsync();
+
+            await _hubContext.Clients.User(request.SenderId)
+                    .SendAsync("FriendRequestRejected");
 
             return Ok("Request declined");
         }
@@ -288,6 +315,12 @@ namespace Risen.Web.Controllers
             _db.FriendRequests.Remove(friendRequest);
             _db.Friends.Remove(friend);
             await _db.SaveChangesAsync();
+
+            await _hubContext.Clients.User(friendId)
+                .SendAsync("FriendRemoved");
+
+            await _hubContext.Clients.User(userId)
+                .SendAsync("FriendRemoved");
 
             return Ok("Friend removed");
         }
