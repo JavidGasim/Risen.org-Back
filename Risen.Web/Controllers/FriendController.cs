@@ -140,6 +140,8 @@ namespace Risen.Web.Controllers
                      SenderId = senderId
                  });
 
+            Console.WriteLine("FriendRequestReceived is sending");
+
             return Ok("Request sent");
         }
 
@@ -182,6 +184,8 @@ namespace Risen.Web.Controllers
                          FriendId = request.SenderId
                      });
 
+            Console.WriteLine("FriendRequestAccepted is accepting");
+
             return Ok("You are friends now");
         }
 
@@ -205,6 +209,8 @@ namespace Risen.Web.Controllers
 
             await _hubContext.Clients.User(request.SenderId)
                     .SendAsync("FriendRequestRejected");
+
+            Console.WriteLine("FriendRequestRejected is rejecting");
 
             return Ok("Request declined");
         }
@@ -321,6 +327,8 @@ namespace Risen.Web.Controllers
 
             await _hubContext.Clients.User(userId)
                 .SendAsync("FriendRemoved");
+
+            Console.WriteLine("FriendRemoved is removing");
 
             return Ok("Friend removed");
         }
