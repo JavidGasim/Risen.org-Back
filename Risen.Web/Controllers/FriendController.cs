@@ -303,7 +303,15 @@ namespace Risen.Web.Controllers
                         Id = request.Id,
                         SenderId = request.Sender.Id.ToString(),
                         ReceiverId = userId,
-                        Status = request.Status
+                        Status = request.Status,
+                        Sender = new CustomIdentityUser
+                        {
+                            Id = request.Sender.Id,
+                            FullName = request.Sender.FullName,
+                            Email = request.Sender.Email,
+                            UniversityId = request.Sender.UniversityId,
+                            Stats = request.Sender.Stats
+                        }
                     });
                 }
             }
