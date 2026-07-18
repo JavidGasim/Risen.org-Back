@@ -133,12 +133,17 @@ namespace Risen.Web.Controllers
 
             await _friendRequestService.AddAsync(request);
 
-            await _hubContext.Clients
-                 .User(receiverId)
+            await _hubContext.Clients.User(receiverId)
                  .SendAsync("FriendRequestReceived", new
                  {
                      SenderId = senderId
                  });
+
+            await _hubContext.Clients.User(senderId)
+                .SendAsync("FriendRequestSent", new
+                {
+                    ReceiverId = receiverId
+                });
 
             Console.WriteLine("FriendRequestReceived is sending");
 
@@ -210,6 +215,9 @@ namespace Risen.Web.Controllers
             await _hubContext.Clients.User(request.SenderId)
                     .SendAsync("FriendRequestRejected");
 
+            await _hubContext.Clients.User(request.ReceiverId)
+                   .SendAsync("FriendRequestRejected");
+
             Console.WriteLine("FriendRequestRejected is rejecting");
 
             return Ok("Request declined");
@@ -263,6 +271,8 @@ namespace Risen.Web.Controllers
             int counter = 0;
             var userId = _userManager.GetUserId(User);
 
+            List<FriendRequest> friendRequests = new List<FriendRequest>();
+
             var requests = await _db.FriendRequests
                 .Where(r => r.ReceiverId == userId)
                 .Select(r => new
@@ -288,13 +298,20 @@ namespace Risen.Web.Controllers
                 if (request.Status == "Pending" || request.Status == "pending" || request.Status == "PENDING")
                 {
                     counter++;
+                    friendRequests.Add(new FriendRequest
+                    {
+                        Id = request.Id,
+                        SenderId = request.Sender.Id.ToString(),
+                        ReceiverId = userId,
+                        Status = request.Status
+                    });
                 }
             }
 
             if (counter == 0)
                 return Ok(new { message = "No pending requests" });
             else
-                return Ok(requests);
+                return Ok(friendRequests);
         }
 
         [Authorize]
