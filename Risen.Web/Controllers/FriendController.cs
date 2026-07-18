@@ -348,6 +348,8 @@ namespace Risen.Web.Controllers
             await _friendRequestService.DeleteAsync(friendRequest);
             await _friendService.DeleteAsync(friend);
 
+            await _db.SaveChangesAsync();
+
             await _hubContext.Clients.User(friendId)
                 .SendAsync("FriendRemoved");
 
