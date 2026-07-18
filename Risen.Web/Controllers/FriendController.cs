@@ -340,6 +340,8 @@ namespace Risen.Web.Controllers
                 .FirstOrDefaultAsync(fr =>
                     (fr.SenderId == userId && fr.ReceiverId == friendId.ToString()) || (fr.SenderId == friendId.ToString() && fr.ReceiverId == userId.ToString()));
 
+            Console.WriteLine("fr req: " + friendRequest?.Id);
+
             if (friendRequest == null)
                 return NotFound();
 
