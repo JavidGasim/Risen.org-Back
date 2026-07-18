@@ -343,9 +343,8 @@ namespace Risen.Web.Controllers
             if (friendRequest == null)
                 return NotFound();
 
-            _db.FriendRequests.Remove(friendRequest);
-            _db.Friends.Remove(friend);
-            await _db.SaveChangesAsync();
+            await _friendRequestService.DeleteAsync(friendRequest);
+            await _friendService.DeleteAsync(friend);
 
             await _hubContext.Clients.User(friendId)
                 .SendAsync("FriendRemoved");
