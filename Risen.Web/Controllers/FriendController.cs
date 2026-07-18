@@ -338,7 +338,7 @@ namespace Risen.Web.Controllers
 
             var friendRequest = await _db.FriendRequests
                 .FirstOrDefaultAsync(fr =>
-                    (fr.SenderId == userId && fr.ReceiverId == friendId.ToString()) || (fr.SenderId == friendId.ToString() && fr.ReceiverId == userId.ToString()));
+                    ((fr.SenderId == userId && fr.ReceiverId == friendId.ToString()) || (fr.SenderId == friendId.ToString() && fr.ReceiverId == userId.ToString())) && fr.Status == "Accepted");
 
             Console.WriteLine("fr req: " + friendRequest?.Id);
 
