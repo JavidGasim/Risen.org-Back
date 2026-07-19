@@ -6,7 +6,9 @@ namespace Risen.Web.Hubs
     {
         public override async Task OnConnectedAsync()
         {
-            Console.WriteLine(Context.UserIdentifier);
+            Console.WriteLine("FriendHub Connected");
+            Console.WriteLine($"UserIdentifier: {Context.UserIdentifier}");
+
             await base.OnConnectedAsync();
         }
     }
