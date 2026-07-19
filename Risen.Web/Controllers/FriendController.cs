@@ -133,17 +133,11 @@ namespace Risen.Web.Controllers
 
             await _friendRequestService.AddAsync(request);
 
-            await _hubContext.Clients.User(receiverId)
+            await _hubContext.Clients.Users(receiverId, senderId)
                  .SendAsync("FriendRequestReceived", new
                  {
                      SenderId = senderId
                  });
-
-            await _hubContext.Clients.User(senderId)
-                .SendAsync("FriendRequestSent", new
-                {
-                    ReceiverId = receiverId
-                });
 
             Console.WriteLine("FriendRequestReceived is sending");
 
@@ -177,17 +171,11 @@ namespace Risen.Web.Controllers
             await _friendRequestService.UpdateAsync(request);
             await _db.SaveChangesAsync();
 
-            await _hubContext.Clients.User(request.SenderId)
+            await _hubContext.Clients.Users(request.SenderId, request.ReceiverId)
                     .SendAsync("FriendRequestAccepted", new
                     {
                         FriendId = request.ReceiverId
                     });
-
-            await _hubContext.Clients.User(request.ReceiverId)
-                     .SendAsync("FriendRequestAccepted", new
-                     {
-                         FriendId = request.SenderId
-                     });
 
             Console.WriteLine("FriendRequestAccepted is accepting");
 
@@ -212,11 +200,8 @@ namespace Risen.Web.Controllers
             await _friendRequestService.UpdateAsync(request);
             await _db.SaveChangesAsync();
 
-            await _hubContext.Clients.User(request.SenderId)
+            await _hubContext.Clients.Users(request.SenderId, request.ReceiverId)
                     .SendAsync("FriendRequestRejected");
-
-            await _hubContext.Clients.User(request.ReceiverId)
-                   .SendAsync("FriendRequestRejected");
 
             Console.WriteLine("FriendRequestRejected is rejecting");
 
@@ -350,10 +335,7 @@ namespace Risen.Web.Controllers
 
             await _db.SaveChangesAsync();
 
-            await _hubContext.Clients.User(friendId)
-                .SendAsync("FriendRemoved");
-
-            await _hubContext.Clients.User(userId)
+            await _hubContext.Clients.Users(friendId, userId)
                 .SendAsync("FriendRemoved");
 
             Console.WriteLine("FriendRemoved is removing");
