@@ -133,11 +133,9 @@ namespace Risen.Web.Controllers
 
             await _friendRequestService.AddAsync(request);
 
-            await _hubContext.Clients.Users(receiverId, senderId)
-                 .SendAsync("FriendRequestReceived", new
-                 {
-                     SenderId = senderId
-                 });
+            await _hubContext.Clients.All.SendAsync(
+           "FriendRequestReceived",
+           new { test = "hello" });
 
             Console.WriteLine("FriendRequestReceived is sending");
 
