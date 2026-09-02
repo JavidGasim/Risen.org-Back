@@ -48,6 +48,7 @@ namespace Risen.Web.Controllers
                     p.Text,
                     p.ShareDate,
                     SenderName = p.Sender!.FullName,
+                    SenderEmail = p.Sender!.Email,
                     SenderId = p.SenderId,
                     p.LikeCount,
                     p.CommentCount
@@ -76,6 +77,7 @@ namespace Risen.Web.Controllers
                 post.Text,
                 post.ShareDate,
                 SenderName = post.Sender!.FullName,
+                SenderEmail = post.Sender!.Email,
                 SenderId = post.SenderId,
                 post.LikeCount,
                 post.CommentCount,
